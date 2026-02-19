@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PoF Admin">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="description" content="Professor of Funk — Teacher Admin Dashboard">
+<title>Professor of Funk — Admin</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiUHJvZiBvZiBGdW5rIEFkbWluIiwic2hvcnRfbmFtZSI6IlBvRiBBZG1pbiIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGEwYTBmIiwidGhlbWVfY29sb3IiOiIjRDQ5NDNBIn0=">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0f; --surface:#13131a; --surface2:#1a1a24; --border:#2a2a35;
+  --accent:#D4943A; --accent-glow:rgba(212,148,58,0.15); --accent-dim:#7A4A28;
+  --green:#4ade80; --red:#f87171; --blue:#60a5fa; --purple:#c084fc; --yellow:#fbbf24;
+  --text:#e8e8ef; --muted:#888899;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.5;}
+input,textarea,select,button{font-family:inherit;font-size:inherit;}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding-top:var(--safe-top);}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;height:52px;flex-shrink:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:8px;margin-right:auto;}
+.logo-icon{font-size:18px;}
+.logo-name{font-family:'DM Serif Display',Georgia,serif;font-size:16px;font-weight:700;color:var(--accent);}
+.logo-sub{color:var(--muted);font-size:10px;font-weight:500;display:none;}
+@media(min-width:500px){.logo-sub{display:inline;}}
+.header-logout{background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--muted);font-size:10px;cursor:pointer;}
+.bottom-nav{display:flex;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:var(--safe-bottom);z-index:100;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 6px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:9px;font-weight:500;transition:color 0.2s;}
+.nav-btn.active{color:var(--accent);}
+.nav-btn .nav-icon{font-size:18px;line-height:1;}
+.content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+.pad{padding:16px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.card-accent{border-top:3px solid var(--accent);}
+.section-title{font-family:'DM Serif Display',Georgia,serif;font-size:20px;margin:0 0 4px;}
+.section-sub{color:var(--muted);font-size:12px;margin:0 0 16px;}
+.label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}
+.badge-green{background:rgba(74,222,128,0.15);color:var(--green);}
+.badge-yellow{background:rgba(251,191,36,0.15);color:var(--yellow);}
+.badge-red{background:rgba(248,113,113,0.15);color:var(--red);}
+.badge-blue{background:rgba(96,165,250,0.15);color:var(--blue);}
+.badge-purple{background:rgba(192,132,252,0.15);color:var(--purple);}
+.badge-accent{background:var(--accent-glow);color:var(--accent);}
+.btn{background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:600;font-size:13px;cursor:pointer;transition:opacity 0.2s;}
+.btn:hover{opacity:0.9;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;}
+.btn-outline.active{border-color:var(--accent);color:var(--accent);background:var(--accent-glow);}
+.input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);outline:none;font-size:14px;}
+.input:focus{border-color:var(--accent);}
+select.input{appearance:auto;}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.stat-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;}
+.stat-value{font-family:'DM Serif Display',Georgia,serif;font-size:24px;font-weight:700;color:var(--text);margin:2px 0;}
+.stat-sub{color:var(--muted);font-size:11px;}
+.student-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color 0.2s;}
+.student-card:hover{border-color:var(--accent);}
+.student-name{font-family:'DM Serif Display',Georgia,serif;font-size:17px;margin-bottom:2px;}
+.student-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:11px;}
+.student-detail{display:flex;align-items:center;gap:4px;}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.attendance-grid{display:grid;grid-template-columns:120px repeat(7,1fr);gap:1px;background:var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;font-size:12px;}
+.attendance-cell{background:var(--surface);padding:8px 6px;text-align:center;display:flex;align-items:center;justify-content:center;}
+.attendance-header{background:var(--surface2);font-weight:600;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.3px;}
+.attendance-name{justify-content:flex-start;font-weight:600;font-size:12px;}
+.attendance-toggle{cursor:pointer;font-size:16px;transition:opacity 0.2s;}
+.attendance-toggle:hover{opacity:0.8;}
+.payment-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);}
+.payment-row:last-child{border-bottom:none;}
+.payment-amount{font-family:'DM Serif Display',Georgia,serif;font-size:16px;font-weight:700;}
+.payment-positive{color:var(--green);}
+.payment-negative{color:var(--red);}
+.ensemble-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.ensemble-name{font-family:'DM Serif Display',Georgia,serif;font-size:17px;margin-bottom:4px;}
+.repertoire-item{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);}
+.repertoire-item:last-child{border-bottom:none;}
+.form-group{margin-bottom:12px;}
+.form-group label{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.3px;font-weight:600;margin-bottom:4px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.revenue-bar{display:flex;align-items:flex-end;gap:4px;height:80px;margin:12px 0;}
+.revenue-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.revenue-fill{width:100%;border-radius:4px 4px 0 0;background:var(--accent);transition:height 0.3s;}
+.revenue-label{font-size:9px;color:var(--muted);}
+.revenue-amount{font-size:9px;font-weight:700;color:var(--accent);}
+@media(min-width:700px){
+  .stats{grid-template-columns:repeat(4,1fr);}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+}
+@media(max-width:600px){
+  .attendance-grid{grid-template-columns:80px repeat(7,1fr);font-size:10px;}
+  .attendance-cell{padding:6px 3px;}
+}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+<div id="auth-gate" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
+<div style="text-align:center;padding:40px;">
+<div style="font-size:48px;margin-bottom:12px;">🎛️</div>
+<div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;color:#D4943A;margin-bottom:4px;">Professor of Funk</div>
+<div style="color:#888899;font-size:12px;margin-bottom:24px;">Admin Dashboard — Teacher Access</div>
+<input id="auth-email" type="email" placeholder="Email" style="width:260px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;margin-bottom:8px;">
+<br><input id="auth-pw" type="password" placeholder="Password" style="width:260px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;" onkeydown="if(event.key==='Enter')checkAuth()">
+<br><button onclick="checkAuth()" style="margin-top:12px;padding:8px 32px;border-radius:10px;border:none;background:#D4943A;color:#000;font-weight:600;font-size:14px;cursor:pointer;">Sign In</button>
+<div id="auth-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;">Invalid email or password</div>
+<button onclick="resetPassword()" style="margin-top:8px;background:transparent;border:none;color:#888899;font-size:12px;cursor:pointer;text-decoration:underline;">Forgot Password?</button>
+<div id="auth-reset-msg" style="color:#4ade80;font-size:12px;margin-top:6px;display:none;">Password reset email sent! Check your inbox.</div>
+</div>
+</div>
+<div class="app" id="app" style="display:none;"></div>
+<script>
+/* ===== AUTH ===== */
+let adminUser = null;
+
+async function checkAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pw = document.getElementById('auth-pw').value;
+  if (!email || !pw) { document.getElementById('auth-err').style.display = 'block'; return; }
+  try {
+    const cred = await firebase.auth().signInWithEmailAndPassword(email, pw);
+    adminUser = cred.user;
+    showApp();
+  } catch (e) {
+    console.error('Auth failed:', e);
+    document.getElementById('auth-err').style.display = 'block';
+  }
+}
+
+async function resetPassword() {
+  const email = document.getElementById('auth-email').value.trim();
+  if (!email) { alert('Please enter your email address first.'); return; }
+  try {
+    await firebase.auth().sendPasswordResetEmail(email);
+    document.getElementById('auth-reset-msg').style.display = 'block';
+    document.getElementById('auth-err').style.display = 'none';
+  } catch (e) {
+    alert('Could not send reset email: ' + e.message);
+  }
+}
+
+async function showApp() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  await loadLocalData();
+  setupRealtimeSync();
+  render();
+}
+
+function logout() {
+  firebase.auth().signOut();
+  adminUser = null;
+  document.getElementById('auth-gate').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-pw').value = '';
+  document.getElementById('auth-err').style.display = 'none';
+}
+
+/* ===== FIREBASE SETUP ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBAVSC2g5xfnUXqkBoBX8TspITgDg_4FMo",
+  authDomain: "professor-of-funk.firebaseapp.com",
+  databaseURL: "https://professor-of-funk-default-rtdb.firebaseio.com",
+  projectId: "professor-of-funk",
+  storageBucket: "professor-of-funk.firebasestorage.app",
+  messagingSenderId: "409198973109",
+  appId: "1:409198973109:web:1c2aa4fd4611130b236efc"
+};
+const fbApp = firebase.initializeApp(firebaseConfig);
+const fbDb = firebase.database();
+const DB_ROOT = "professorOfFunk";
+
+// Secondary app for creating student auth accounts without signing out admin
+const secondaryApp = firebase.initializeApp(firebaseConfig, 'secondary');
+
+async function createStudentAuth(studentId, accessCode) {
+  try {
+    const cred = await secondaryApp.auth().createUserWithEmailAndPassword(
+      studentId + '@professoroffunk.app',
+      accessCode + '!PoF'
+    );
+    await secondaryApp.auth().signOut();
+    return cred.user.uid;
+  } catch (e) {
+    if (e.code === 'auth/email-already-in-use') {
+      console.warn('Student auth account already exists for', studentId);
+      try {
+        const cred = await secondaryApp.auth().signInWithEmailAndPassword(
+          studentId + '@professoroffunk.app',
+          accessCode + '!PoF'
+        );
+        const uid = cred.user.uid;
+        await secondaryApp.auth().signOut();
+        return uid;
+      } catch (e2) {
+        console.error('Could not retrieve existing student UID:', e2);
+        return null;
+      }
+    }
+    console.error('Failed to create student auth:', e);
+    return null;
+  }
+}
+
+async function createParentAuth(parentId, accessCode) {
+  try {
+    const cred = await secondaryApp.auth().createUserWithEmailAndPassword(
+      parentId + '@parent.professoroffunk.app',
+      accessCode + '!PoF'
+    );
+    await secondaryApp.auth().signOut();
+    return cred.user.uid;
+  } catch (e) {
+    if (e.code === 'auth/email-already-in-use') {
+      console.warn('Parent auth account already exists for', parentId);
+      try {
+        const cred = await secondaryApp.auth().signInWithEmailAndPassword(
+          parentId + '@parent.professoroffunk.app',
+          accessCode + '!PoF'
+        );
+        const uid = cred.user.uid;
+        await secondaryApp.auth().signOut();
+        return uid;
+      } catch (e2) {
+        console.error('Could not retrieve existing parent UID:', e2);
+        return null;
+      }
+    }
+    console.error('Failed to create parent auth:', e);
+    return null;
+  }
+}
+
+async function ensureParentRecord(studentKey, parentName, parentEmail, parentAccessCode) {
+  const parentId = parentAccessCode.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/^-|-$/g, '');
+  if (!localData.parents) localData.parents = {};
+  let parent = localData.parents[parentId];
+  let authUid;
+  if (!parent) {
+    authUid = await createParentAuth(parentId, parentAccessCode);
+    parent = {
+      profile: { name: parentName, email: parentEmail, accessCode: parentAccessCode, authUid: authUid || null },
+      children: {}
+    };
+  } else {
+    authUid = parent.profile.authUid;
+  }
+  parent.children[studentKey] = true;
+  localData.parents[parentId] = parent;
+  await fbSave("parents/" + parentId, parent);
+  await fbSave("meta/parentAccessCodes/" + parentAccessCode, parentId);
+  return authUid;
+}
+
+// Auto-login if session still valid
+firebase.auth().onAuthStateChanged(user => {
+  if (user && !adminUser) {
+    adminUser = user;
+    showApp();
+  }
+});
+function dbRef(path) { return fbDb.ref(DB_ROOT + "/" + path); }
+let skipSync = false;
+
+function toArray(val) {
+  if (Array.isArray(val)) return val;
+  if (val && typeof val === 'object') return Object.values(val);
+  return [];
+}
+
+async function fbLoad(key, fallback) {
+  try {
+    const snap = await dbRef(key).once("value");
+    const val = snap.val();
+    return val !== null ? val : fallback;
+  } catch(e) {
+    console.warn("Firebase read failed for " + key, e);
+    return fallback;
+  }
+}
+
+async function fbSave(key, val) {
+  try { await dbRef(key).set(val); } catch(e) { console.warn("Firebase write failed for " + key, e); }
+}
+
+function onDataChange(key, callback) {
+  const ref = dbRef(key);
+  ref.on("value", snap => { const val = snap.val(); if (val !== null && !skipSync) callback(val); });
+  return () => ref.off("value");
+}
+
+/* ===== DATA LAYER ===== */
+let localData = null;
+
+async function loadLocalData() {
+  const [students, ensembles, lessonTranscripts, parents] = await Promise.all([
+    fbLoad("students", {}),
+    fbLoad("ensembles", {}),
+    fbLoad("lessonTranscripts", []),
+    fbLoad("parents", {})
+  ]);
+  // Normalize arrays/objects that Firebase may have converted or stripped
+  Object.keys(students).forEach(k => {
+    students[k].billing = toArray(students[k].billing);
+    if (!students[k].attendance || typeof students[k].attendance !== 'object') students[k].attendance = {};
+  });
+  Object.keys(ensembles).forEach(k => {
+    ensembles[k].repertoire = toArray(ensembles[k].repertoire);
+    if (ensembles[k].info) ensembles[k].info.members = toArray(ensembles[k].info.members);
+  });
+  localData = { students, ensembles, lessonTranscripts: toArray(lessonTranscripts), parents };
+
+  // One-time migration: create auth accounts for existing students without authUid
+  for (const [key, student] of Object.entries(localData.students)) {
+    if (!student.profile.authUid && student.profile.accessCode) {
+      console.log('Migrating student auth:', key);
+      const authUid = await createStudentAuth(key, student.profile.accessCode);
+      if (authUid) {
+        student.profile.authUid = authUid;
+        await fbSave("students/" + key + "/profile/authUid", authUid);
+      }
+      // Ensure access code mapping exists
+      await fbSave("meta/accessCodes/" + student.profile.accessCode, key);
+    }
+  }
+
+  // One-time migration: create parent records for existing students with parentName
+  for (const [key, student] of Object.entries(localData.students)) {
+    if (student.profile.parentName && !student.profile.parentAuthUid) {
+      const parentCode = key + '-parent';
+      console.log('Migrating parent for:', key, '->', parentCode);
+      const parentAuthUid = await ensureParentRecord(key, student.profile.parentName, student.profile.parentEmail || '', parentCode);
+      if (parentAuthUid) {
+        student.profile.parentAuthUid = parentAuthUid;
+        student.profile.parentAccessCode = parentCode;
+        await fbSave("students/" + key + "/profile/parentAuthUid", parentAuthUid);
+        await fbSave("students/" + key + "/profile/parentAccessCode", parentCode);
+      }
+    }
+  }
+}
+
+function saveLocalData() {
+  if (!localData) return;
+  skipSync = true;
+  fbSave("students", localData.students);
+  fbSave("ensembles", localData.ensembles);
+  fbSave("lessonTranscripts", localData.lessonTranscripts || []);
+  fbSave("parents", localData.parents || {});
+  setTimeout(() => { skipSync = false; }, 500);
+}
+
+function setupRealtimeSync() {
+  onDataChange("students", val => {
+    if (!localData) return;
+    Object.keys(val).forEach(k => {
+      val[k].billing = toArray(val[k].billing);
+      if (!val[k].attendance || typeof val[k].attendance !== 'object') val[k].attendance = {};
+    });
+    localData.students = val;
+    render();
+  });
+  onDataChange("ensembles", val => {
+    if (!localData) return;
+    Object.keys(val).forEach(k => {
+      val[k].repertoire = toArray(val[k].repertoire);
+      if (val[k].info) val[k].info.members = toArray(val[k].info.members);
+    });
+    localData.ensembles = val;
+    render();
+  });
+  onDataChange("lessonTranscripts", val => {
+    if (!localData) return;
+    localData.lessonTranscripts = toArray(val);
+    render();
+  });
+}
+
+/* ===== STATE ===== */
+let currentTab = 0;
+let paymentStudent = null;
+let showAddStudent = false;
+let showAddEnsemble = false;
+let editingStudent = null;   // key of student being edited, or null
+let editingEnsemble = null;  // key of ensemble being edited, or null
+let editingSong = null;      // { ensKey, songId } or null
+let addingSongTo = null;     // ensemble key, or null
+
+/* ===== HELPERS ===== */
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === 'class' || k === 'className') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
+    else el.setAttribute(k, v);
+  });
+  children.flat(9).forEach(c => { if (c == null || c === false) return; el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  return el;
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function fmtDateFull(d) {
+  if (!d) return '';
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fmtCurrency(n) { return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function getBalance(studentKey) {
+  const billing = localData.students[studentKey].billing || [];
+  let balance = 0;
+  billing.forEach(entry => {
+    if (entry.type === 'charge') balance += entry.amount;
+    else if (entry.type === 'payment') balance -= entry.amount;
+  });
+  return balance;
+}
+
+function getAttendanceRate(studentKey) {
+  const s = localData.students[studentKey];
+  if (!s) return 100;
+  const att = s.attendance || {};
+  const entries = Object.values(att);
+  const attended = entries.filter(e => e.present).length;
+  const total = entries.filter(e => !e.cancelled).length;
+  return total ? Math.round(attended / total * 100) : 100;
+}
+
+function getStatusColor(status) {
+  switch (status) {
+    case 'current': return 'var(--green)';
+    case 'overdue': return 'var(--red)';
+    case 'overdue-lesson': return 'var(--yellow)';
+    default: return 'var(--muted)';
+  }
+}
+
+function getStatusBadge(status) {
+  switch (status) {
+    case 'current': return 'badge-green';
+    case 'overdue': return 'badge-red';
+    case 'overdue-lesson': return 'badge-yellow';
+    default: return 'badge-blue';
+  }
+}
+
+/* ===== VIEWS ===== */
+
+function renderAddStudentForm() {
+  return h('div', { class: 'card card-accent', style: { marginBottom: '16px' } },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
+      h('div', { style: { fontWeight: '600', fontSize: '15px' } }, 'Add New Student'),
+      h('button', { class: 'btn-outline', onClick: () => { showAddStudent = false; render(); } }, '✕ Cancel')
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Student Name'),
+        h('input', { class: 'input', id: 'new-student-name', placeholder: 'e.g. Alex' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Instrument'),
+        h('select', { class: 'input', id: 'new-student-instrument' },
+          h('option', { value: 'Guitar' }, 'Guitar'),
+          h('option', { value: 'Bass' }, 'Bass'),
+          h('option', { value: 'Drums' }, 'Drums'),
+          h('option', { value: 'Keys' }, 'Keys'),
+          h('option', { value: 'Vocals' }, 'Vocals'),
+          h('option', { value: 'Other' }, 'Other')
+        )
+      )
+    ),
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Program'),
+      h('select', { class: 'input', id: 'new-student-program' },
+        h('option', { value: 'Private Lessons' }, 'Private Lessons'),
+        h('option', { value: 'Ensemble Only' }, 'Ensemble Only'),
+        h('option', { value: 'Private + Ensemble' }, 'Private + Ensemble')
+      )
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Private Lesson Rate ($/lesson)'),
+        h('input', { class: 'input', id: 'new-student-private-rate', type: 'number', placeholder: '75', value: '75' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Group Lesson Rate ($/lesson)'),
+        h('input', { class: 'input', id: 'new-student-group-rate', type: 'number', placeholder: '50', value: '50' })
+      )
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Lesson Day'),
+        h('select', { class: 'input', id: 'new-student-day' },
+          ...['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(d =>
+            h('option', { value: d, ...(d === 'Wednesday' ? { selected: 'selected' } : {}) }, d)
+          )
+        )
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Lesson Time'),
+        h('input', { class: 'input', id: 'new-student-time', placeholder: 'e.g. 3:00 PM' })
+      )
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Parent/Guardian Name'),
+        h('input', { class: 'input', id: 'new-student-parent', placeholder: 'e.g. David & Sarah' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Parent Email'),
+        h('input', { class: 'input', id: 'new-student-email', type: 'email', placeholder: 'parent@email.com' })
+      )
+    ),
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Access Code (for student portal login)'),
+      h('input', { class: 'input', id: 'new-student-code', placeholder: 'e.g. alex1 — keep it simple' })
+    ),
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Parent Access Code (for parent dashboard)'),
+      h('input', { class: 'input', id: 'new-student-parent-code', placeholder: 'e.g. wong-parent — auto-generated if blank' })
+    ),
+    h('button', { class: 'btn', style: { marginTop: '4px' }, onClick: async () => {
+      const name = document.getElementById('new-student-name').value.trim();
+      const instrument = document.getElementById('new-student-instrument').value;
+      const program = document.getElementById('new-student-program').value;
+      const privateRate = parseInt(document.getElementById('new-student-private-rate').value) || 75;
+      const groupRate = parseInt(document.getElementById('new-student-group-rate').value) || 50;
+      const lessonDay = document.getElementById('new-student-day').value;
+      const lessonTime = document.getElementById('new-student-time').value.trim();
+      const parentName = document.getElementById('new-student-parent').value.trim();
+      const parentEmail = document.getElementById('new-student-email').value.trim();
+      const accessCode = document.getElementById('new-student-code').value.trim().toLowerCase();
+      const parentCodeRaw = document.getElementById('new-student-parent-code').value.trim().toLowerCase();
+      if (!name) { alert('Please enter a student name.'); return; }
+      if (!accessCode) { alert('Please enter an access code for the student portal.'); return; }
+      const existingCodes = Object.values(localData.students).map(s => s.profile.accessCode);
+      if (existingCodes.includes(accessCode)) { alert('That access code is already in use.'); return; }
+      const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const parentCode = parentCodeRaw || (key + '-parent');
+      if (localData.students[key]) { alert('A student with that key already exists.'); return; }
+
+      // Create Firebase Auth account for student
+      const authUid = await createStudentAuth(key, accessCode);
+
+      localData.students[key] = {
+        profile: { name, instrument, program, startDate: new Date().toISOString().slice(0, 10), accessCode, authUid: authUid || null, parentName, parentEmail, lessonDay, lessonTime, privateRate, groupRate },
+        lastLesson: null,
+        nextLesson: null,
+        paymentStatus: 'current',
+        attendance: {},
+        billing: []
+      };
+
+      // Save student data + access code mapping
+      await fbSave("students/" + key, localData.students[key]);
+      await fbSave("meta/accessCodes/" + accessCode, key);
+
+      // Create parent record if parent name provided
+      if (parentName) {
+        const parentAuthUid = await ensureParentRecord(key, parentName, parentEmail, parentCode);
+        localData.students[key].profile.parentAuthUid = parentAuthUid || null;
+        localData.students[key].profile.parentAccessCode = parentCode;
+        await fbSave("students/" + key + "/profile/parentAuthUid", parentAuthUid || null);
+        await fbSave("students/" + key + "/profile/parentAccessCode", parentCode);
+      }
+
+      showAddStudent = false;
+      render();
+    }}, 'Add Student')
+  );
+}
+
+function renderEditStudentForm(key) {
+  const s = localData.students[key];
+  const p = s.profile;
+  const instruments = ['Guitar','Bass','Drums','Keys','Vocals','Other'];
+  const programs = ['Private Lessons','Ensemble Only','Private + Ensemble'];
+  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  return h('div', { class: 'card card-accent', style: { marginBottom: '16px' } },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
+      h('div', { style: { fontWeight: '600', fontSize: '15px' } }, 'Edit Student — ' + p.name),
+      h('button', { class: 'btn-outline', onClick: () => { editingStudent = null; render(); } }, '✕ Cancel')
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Student Name'),
+        h('input', { class: 'input', id: 'edit-student-name', value: p.name })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Instrument'),
+        h('select', { class: 'input', id: 'edit-student-instrument' },
+          ...instruments.map(i => h('option', { value: i, ...(i === p.instrument ? { selected: 'selected' } : {}) }, i))
+        )
+      )
+    ),
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Program'),
+      h('select', { class: 'input', id: 'edit-student-program' },
+        ...programs.map(pr => h('option', { value: pr, ...(pr === p.program ? { selected: 'selected' } : {}) }, pr))
+      )
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Private Lesson Rate ($/lesson)'),
+        h('input', { class: 'input', id: 'edit-student-private-rate', type: 'number', value: '' + (p.privateRate || p.rate || 75) })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Group Lesson Rate ($/lesson)'),
+        h('input', { class: 'input', id: 'edit-student-group-rate', type: 'number', value: '' + (p.groupRate || 50) })
+      )
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Lesson Day'),
+        h('select', { class: 'input', id: 'edit-student-day' },
+          ...days.map(d => h('option', { value: d, ...(d === p.lessonDay ? { selected: 'selected' } : {}) }, d))
+        )
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Lesson Time'),
+        h('input', { class: 'input', id: 'edit-student-time', value: p.lessonTime || '' })
+      )
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Parent/Guardian Name'),
+        h('input', { class: 'input', id: 'edit-student-parent', value: p.parentName || '' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Parent Email'),
+        h('input', { class: 'input', id: 'edit-student-email', type: 'email', value: p.parentEmail || '' })
+      )
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Access Code'),
+        h('input', { class: 'input', id: 'edit-student-code', value: p.accessCode || '' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Payment Status'),
+        h('select', { class: 'input', id: 'edit-student-status' },
+          ...['current','overdue','overdue-lesson'].map(st => h('option', { value: st, ...(st === s.paymentStatus ? { selected: 'selected' } : {}) }, st === 'current' ? 'Current' : st === 'overdue' ? 'Overdue' : 'Overdue (Lesson)'))
+        )
+      )
+    ),
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Parent Access Code'),
+      h('input', { class: 'input', id: 'edit-student-parent-code', value: p.parentAccessCode || '' })
+    ),
+    h('div', { style: { display: 'flex', gap: '8px', marginTop: '4px' } },
+      h('button', { class: 'btn', onClick: async () => {
+        const name = document.getElementById('edit-student-name').value.trim();
+        const instrument = document.getElementById('edit-student-instrument').value;
+        const program = document.getElementById('edit-student-program').value;
+        const privateRate = parseInt(document.getElementById('edit-student-private-rate').value) || 75;
+        const groupRate = parseInt(document.getElementById('edit-student-group-rate').value) || 50;
+        const lessonDay = document.getElementById('edit-student-day').value;
+        const lessonTime = document.getElementById('edit-student-time').value.trim();
+        const parentName = document.getElementById('edit-student-parent').value.trim();
+        const parentEmail = document.getElementById('edit-student-email').value.trim();
+        const accessCode = document.getElementById('edit-student-code').value.trim().toLowerCase();
+        const parentCode = document.getElementById('edit-student-parent-code').value.trim().toLowerCase();
+        const paymentStatus = document.getElementById('edit-student-status').value;
+        if (!name) { alert('Student name is required.'); return; }
+        if (!accessCode) { alert('Access code is required.'); return; }
+        // Check duplicate access code (excluding self)
+        const existingCodes = Object.entries(localData.students).filter(([k]) => k !== key).map(([,v]) => v.profile.accessCode);
+        if (existingCodes.includes(accessCode)) { alert('That access code is already in use by another student.'); return; }
+        // Update access code mapping if changed
+        const oldCode = localData.students[key].profile.accessCode;
+        if (oldCode !== accessCode) {
+          await dbRef("meta/accessCodes/" + oldCode).remove();
+          await fbSave("meta/accessCodes/" + accessCode, key);
+        }
+        // Create/update parent record if parent name and code are provided
+        let parentAuthUid = s.profile.parentAuthUid || null;
+        if (parentName && parentCode) {
+          parentAuthUid = await ensureParentRecord(key, parentName, parentEmail, parentCode) || null;
+        }
+        s.profile = { ...s.profile, name, instrument, program, privateRate, groupRate, lessonDay, lessonTime, parentName, parentEmail, accessCode, parentAccessCode: parentCode || s.profile.parentAccessCode || null, parentAuthUid };
+        s.paymentStatus = paymentStatus;
+        saveLocalData();
+        editingStudent = null;
+        render();
+      }}, 'Save Changes'),
+      h('button', { class: 'btn-outline', style: { color: 'var(--red)', borderColor: 'var(--red)' }, onClick: async () => {
+        if (!confirm('Delete ' + p.name + '? This removes all their data. This cannot be undone.')) return;
+        const code = localData.students[key].profile.accessCode;
+        if (code) await dbRef("meta/accessCodes/" + code).remove();
+        delete localData.students[key];
+        saveLocalData();
+        editingStudent = null;
+        render();
+      }}, 'Delete Student')
+    )
+  );
+}
+
+function renderStudents() {
+  const students = localData.students;
+  const keys = Object.keys(students);
+  const totalStudents = keys.length;
+  const totalRevenue = keys.reduce((sum, k) => {
+    const payments = (students[k].billing || []).filter(b => b.type === 'payment');
+    const thisMonth = payments.filter(b => {
+      const d = new Date(b.date + 'T12:00:00');
+      const now = new Date();
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    return sum + thisMonth.reduce((s, p) => s + p.amount, 0);
+  }, 0);
+  const outstanding = keys.reduce((sum, k) => sum + Math.max(0, getBalance(k)), 0);
+
+  return h('div', { class: 'pad' },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
+      h('h2', { class: 'section-title' }, 'Students'),
+      !showAddStudent ? h('button', { class: 'btn btn-sm', onClick: () => { showAddStudent = true; render(); } }, '+ Add Student') : ''
+    ),
+    h('p', { class: 'section-sub' }, totalStudents + ' active students'),
+
+    showAddStudent ? renderAddStudentForm() : '',
+
+    h('div', { class: 'stats' },
+      h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Students'), h('div', { class: 'stat-value' }, '' + totalStudents)),
+      h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'This Month'), h('div', { class: 'stat-value' }, fmtCurrency(totalRevenue))),
+      h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Outstanding'), h('div', { class: 'stat-value', style: { color: outstanding > 0 ? 'var(--red)' : 'var(--green)' } }, fmtCurrency(outstanding))),
+      h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Avg Rate'), h('div', { class: 'stat-value' }, '$' + (totalStudents ? Math.round(keys.reduce((s, k) => s + (students[k].profile.privateRate || students[k].profile.rate || 75), 0) / totalStudents) : 0)), h('div', { class: 'stat-sub' }, '/private lesson'))
+    ),
+
+    ...keys.map(key => {
+      if (editingStudent === key) return renderEditStudentForm(key);
+      const s = students[key];
+      const bal = getBalance(key);
+      const attRate = getAttendanceRate(key);
+      return h('div', { class: 'student-card', onClick: () => { editingStudent = key; render(); } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } },
+          h('div', {},
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+              h('div', { class: 'status-dot', style: { background: getStatusColor(s.paymentStatus) } }),
+              h('div', { class: 'student-name' }, s.profile.name)
+            ),
+            h('div', { class: 'student-meta' },
+              h('span', { class: 'student-detail' }, '🎸 ' + s.profile.instrument),
+              h('span', { class: 'student-detail' }, '📅 ' + s.profile.lessonDay + ' ' + s.profile.lessonTime),
+              h('span', { class: 'student-detail' }, '👤 ' + s.profile.parentName)
+            )
+          ),
+          h('span', { class: 'badge ' + getStatusBadge(s.paymentStatus) }, s.paymentStatus === 'current' ? 'Current' : s.paymentStatus === 'overdue' ? 'Balance Due' : 'Overdue')
+        ),
+        h('div', { style: { display: 'flex', gap: '16px', marginTop: '10px', fontSize: '11px', color: 'var(--muted)' } },
+          h('span', {}, 'Last: ' + fmtDate(s.lastLesson)),
+          h('span', {}, 'Next: ' + fmtDate(s.nextLesson)),
+          h('span', {}, 'Attendance: ' + attRate + '%'),
+          bal > 0 ? h('span', { style: { color: 'var(--red)', fontWeight: '600' } }, 'Owes: ' + fmtCurrency(bal)) : h('span', { style: { color: 'var(--green)' } }, 'Paid up')
+        )
+      );
+    })
+  );
+}
+
+function renderAttendance() {
+  const students = localData.students;
+  const keys = Object.keys(students);
+  // Get last 4 weeks of dates (Wednesdays)
+  const dates = [];
+  const now = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - (i * 7));
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  dates.reverse();
+
+  return h('div', { class: 'pad' },
+    h('h2', { class: 'section-title' }, 'Attendance'),
+    h('p', { class: 'section-sub' }, 'Track lesson attendance'),
+
+    h('div', { style: { overflowX: 'auto', marginBottom: '16px' } },
+      h('div', { class: 'attendance-grid' },
+        // Header row
+        h('div', { class: 'attendance-cell attendance-header attendance-name' }, 'Student'),
+        ...dates.map(d => h('div', { class: 'attendance-cell attendance-header' }, fmtDate(d))),
+
+        // Student rows
+        ...keys.flatMap(key => {
+          const s = students[key];
+          return [
+            h('div', { class: 'attendance-cell attendance-name' }, s.profile.name),
+            ...dates.map(d => {
+              const att = (s.attendance || {})[d];
+              let icon = '—';
+              let color = 'var(--muted)';
+              if (att) {
+                if (att.present) { icon = '✓'; color = 'var(--green)'; }
+                else if (att.cancelled) { icon = '✕'; color = 'var(--yellow)'; }
+                else { icon = '✗'; color = 'var(--red)'; }
+              }
+              return h('div', {
+                class: 'attendance-cell attendance-toggle',
+                style: { color: color },
+                onClick: () => {
+                  if (!s.attendance) s.attendance = {};
+                  if (!s.attendance[d]) {
+                    s.attendance[d] = { present: true };
+                  } else if (s.attendance[d].present) {
+                    s.attendance[d] = { present: false, cancelled: false };
+                  } else if (!s.attendance[d].cancelled) {
+                    s.attendance[d] = { present: false, cancelled: true, note: 'Cancelled' };
+                  } else {
+                    delete s.attendance[d];
+                  }
+                  saveLocalData();
+                  render();
+                }
+              }, icon);
+            })
+          ];
+        })
+      )
+    ),
+
+    h('div', { class: 'card' },
+      h('div', { class: 'label' }, 'Legend'),
+      h('div', { style: { display: 'flex', gap: '16px', fontSize: '12px' } },
+        h('span', { style: { color: 'var(--green)' } }, '✓ Present'),
+        h('span', { style: { color: 'var(--red)' } }, '✗ Absent'),
+        h('span', { style: { color: 'var(--yellow)' } }, '✕ Cancelled'),
+        h('span', { style: { color: 'var(--muted)' } }, '— No lesson')
+      ),
+      h('p', { style: { color: 'var(--muted)', fontSize: '11px', marginTop: '6px' } }, 'Click to cycle: present → absent → cancelled → clear')
+    ),
+
+    h('div', { class: 'card' },
+      h('div', { class: 'label' }, 'Attendance Summary'),
+      ...keys.map(key => {
+        const s = students[key];
+        const rate = getAttendanceRate(key);
+        const entries = Object.values(s.attendance || {});
+        const total = entries.filter(e => !e.cancelled).length;
+        const attended = entries.filter(e => e.present).length;
+        return h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' } },
+          h('span', { style: { fontWeight: '600', fontSize: '13px' } }, s.profile.name),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+            h('span', { style: { fontSize: '11px', color: 'var(--muted)' } }, attended + '/' + total + ' lessons'),
+            h('span', { style: { fontSize: '13px', fontWeight: '700', color: rate >= 80 ? 'var(--green)' : rate >= 60 ? 'var(--yellow)' : 'var(--red)' } }, rate + '%')
+          )
+        );
+      })
+    )
+  );
+}
+
+function renderPayments() {
+  const students = localData.students;
+  const keys = Object.keys(students);
+
+  if (paymentStudent) {
+    const s = students[paymentStudent];
+    const balance = getBalance(paymentStudent);
+    const billing = (s.billing || []).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return h('div', { class: 'pad' },
+      h('button', { class: 'btn-outline', style: { marginBottom: '12px' }, onClick: () => { paymentStudent = null; render(); } }, '← Back'),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' } },
+        h('h2', { class: 'section-title' }, s.profile.name),
+        h('span', { class: 'badge ' + (balance > 0 ? 'badge-red' : 'badge-green') }, balance > 0 ? 'Balance Due' : 'Paid Up')
+      ),
+
+      h('div', { class: 'stats' },
+        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Balance'), h('div', { class: 'stat-value', style: { color: balance > 0 ? 'var(--red)' : 'var(--green)' } }, (balance > 0 ? '' : '-') + fmtCurrency(balance))),
+        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Private'), h('div', { class: 'stat-value' }, '$' + (s.profile.privateRate || s.profile.rate || 75)), h('div', { class: 'stat-sub' }, '/lesson')),
+        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Group'), h('div', { class: 'stat-value' }, '$' + (s.profile.groupRate || 50)), h('div', { class: 'stat-sub' }, '/lesson'))
+      ),
+
+      // Add charge
+      h('div', { class: 'card card-accent' },
+        h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '10px' } }, 'Add Charge'),
+        h('div', { class: 'form-row' },
+          h('div', { class: 'form-group' },
+            h('label', {}, 'Category'),
+            h('select', { class: 'input', id: 'charge-category', onChange: () => {
+              const cat = document.getElementById('charge-category').value;
+              const amtEl = document.getElementById('charge-amount');
+              amtEl.value = cat === 'private' ? (s.profile.privateRate || s.profile.rate || 75) : (s.profile.groupRate || 50);
+            } },
+              h('option', { value: 'private' }, 'Private Lesson'),
+              h('option', { value: 'group' }, 'Group Lesson')
+            )
+          ),
+          h('div', { class: 'form-group' },
+            h('label', {}, 'Amount'),
+            h('input', { class: 'input', id: 'charge-amount', type: 'number', value: '' + (s.profile.privateRate || s.profile.rate || 75) })
+          )
+        ),
+        h('div', { class: 'form-group' },
+          h('label', {}, 'Note'),
+          h('input', { class: 'input', id: 'charge-note', placeholder: 'e.g. Private lesson — Feb 12' })
+        ),
+        h('button', { class: 'btn', style: { background: 'var(--accent-dim)' }, onClick: () => {
+          const amount = parseFloat(document.getElementById('charge-amount').value);
+          const category = document.getElementById('charge-category').value;
+          const note = document.getElementById('charge-note').value;
+          if (!amount || amount <= 0) return;
+          s.billing.push({ id: uid(), date: new Date().toISOString().slice(0, 10), type: 'charge', amount, method: null, category, note: note || (category === 'private' ? 'Private lesson' : 'Group lesson') });
+          if (getBalance(paymentStudent) > 0) s.paymentStatus = 'overdue';
+          saveLocalData();
+          render();
+        }}, 'Add Charge')
+      ),
+
+      // Record payment
+      h('div', { class: 'card card-accent' },
+        h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '10px' } }, 'Record Payment'),
+        h('div', { class: 'form-row' },
+          h('div', { class: 'form-group' },
+            h('label', {}, 'Amount'),
+            h('input', { class: 'input', id: 'pay-amount', type: 'number', placeholder: '' + (s.profile.privateRate || s.profile.rate || 75), value: '' + balance })
+          ),
+          h('div', { class: 'form-group' },
+            h('label', {}, 'Method'),
+            h('select', { class: 'input', id: 'pay-method' },
+              h('option', { value: 'Venmo' }, 'Venmo'),
+              h('option', { value: 'Zelle' }, 'Zelle'),
+              h('option', { value: 'Cash' }, 'Cash'),
+              h('option', { value: 'Check' }, 'Check'),
+              h('option', { value: 'Other' }, 'Other')
+            )
+          )
+        ),
+        h('div', { class: 'form-group' },
+          h('label', {}, 'Note'),
+          h('input', { class: 'input', id: 'pay-note', placeholder: 'e.g. @username, check #, etc.' })
+        ),
+        h('button', { class: 'btn', onClick: () => {
+          const amount = parseFloat(document.getElementById('pay-amount').value);
+          const method = document.getElementById('pay-method').value;
+          const note = document.getElementById('pay-note').value;
+          if (!amount || amount <= 0) return;
+          s.billing.push({ id: uid(), date: new Date().toISOString().slice(0, 10), type: 'payment', amount, method, category: 'payment', note });
+          if (getBalance(paymentStudent) <= 0) s.paymentStatus = 'current';
+          saveLocalData();
+          render();
+        }}, 'Record Payment')
+      ),
+
+      // Transaction history
+      h('div', { class: 'card' },
+        h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '10px' } }, 'Transaction History'),
+        ...billing.map(entry => {
+          const catLabel = entry.category === 'private' ? 'Private' : entry.category === 'group' ? 'Group' : '';
+          return h('div', { class: 'payment-row' },
+            h('div', { style: { width: '80px' } },
+              h('span', { class: 'payment-amount ' + (entry.type === 'payment' ? 'payment-positive' : 'payment-negative') },
+                (entry.type === 'payment' ? '+' : '-') + fmtCurrency(entry.amount)
+              )
+            ),
+            h('div', { style: { flex: '1', minWidth: '0' } },
+              h('div', { style: { fontSize: '12px' } }, entry.note || (entry.type === 'charge' ? 'Lesson charge' : 'Payment')),
+              h('div', { style: { fontSize: '10px', color: 'var(--muted)' } },
+                fmtDateFull(entry.date) + (entry.method ? ' · ' + entry.method : '') + (catLabel ? ' · ' + catLabel : ''))
+            ),
+            h('span', { class: 'badge ' + (entry.type === 'payment' ? 'badge-green' : entry.category === 'group' ? 'badge-blue' : 'badge-accent') }, entry.type === 'payment' ? 'payment' : catLabel || 'charge')
+          );
+        })
+      )
+    );
+  }
+
+  // Monthly revenue calculation
+  const now = new Date();
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const revenueByMonth = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const month = d.getMonth();
+    const year = d.getFullYear();
+    let total = 0;
+    keys.forEach(k => {
+      (students[k].billing || []).filter(b => b.type === 'payment').forEach(b => {
+        const bd = new Date(b.date + 'T12:00:00');
+        if (bd.getMonth() === month && bd.getFullYear() === year) total += b.amount;
+      });
+    });
+    revenueByMonth.push({ label: monthNames[month], amount: total });
+  }
+  const maxRevenue = Math.max(...revenueByMonth.map(r => r.amount), 1);
+
+  return h('div', { class: 'pad' },
+    h('h2', { class: 'section-title' }, 'Payments'),
+    h('p', { class: 'section-sub' }, 'Track payments and balances'),
+
+    h('div', { class: 'card' },
+      h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '8px' } }, 'Monthly Revenue'),
+      h('div', { class: 'revenue-bar' },
+        ...revenueByMonth.map(r =>
+          h('div', { class: 'revenue-col' },
+            h('div', { class: 'revenue-amount' }, r.amount > 0 ? fmtCurrency(r.amount) : ''),
+            h('div', { class: 'revenue-fill', style: { height: Math.max(4, (r.amount / maxRevenue) * 60) + 'px' } }),
+            h('div', { class: 'revenue-label' }, r.label)
+          )
+        )
+      )
+    ),
+
+    ...keys.map(key => {
+      const s = students[key];
+      const balance = getBalance(key);
+      return h('div', { class: 'student-card', onClick: () => { paymentStudent = key; render(); } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+          h('div', {},
+            h('div', { class: 'student-name' }, s.profile.name),
+            h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, s.profile.program + ' · $' + (s.profile.privateRate || s.profile.rate || 75) + ' priv · $' + (s.profile.groupRate || 50) + ' group')
+          ),
+          h('div', { style: { textAlign: 'right' } },
+            h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '20px', fontWeight: '700', color: balance > 0 ? 'var(--red)' : 'var(--green)' } }, (balance > 0 ? '' : '') + fmtCurrency(balance)),
+            h('span', { class: 'badge ' + (balance > 0 ? 'badge-red' : 'badge-green') }, balance > 0 ? 'Due' : 'Paid')
+          )
+        )
+      );
+    })
+  );
+}
+
+function renderLessonInput() {
+  const students = localData.students;
+  const keys = Object.keys(students);
+
+  return h('div', { class: 'pad' },
+    h('h2', { class: 'section-title' }, 'Lesson Input'),
+    h('p', { class: 'section-sub' }, 'Paste a lesson transcript for AI processing (coming soon)'),
+
+    h('div', { class: 'card card-accent' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Student'),
+        h('select', { class: 'input', id: 'lesson-student' },
+          h('option', { value: '' }, 'Select student...'),
+          ...keys.map(k => h('option', { value: k }, students[k].profile.name))
+        )
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Lesson Date'),
+        h('input', { class: 'input', id: 'lesson-date', type: 'date', value: new Date().toISOString().slice(0, 10) })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Transcript / Notes'),
+        h('textarea', { class: 'input', id: 'lesson-transcript', rows: '10', placeholder: 'Paste lesson transcript here, or write quick notes about what was covered...\n\nIn the future, this will be processed by AI to automatically generate:\n- Lesson summary\n- Key concepts\n- Practice plan\n- Milestone updates', style: { resize: 'vertical', fontFamily: "'IBM Plex Sans', monospace", fontSize: '13px', lineHeight: '1.6' } })
+      ),
+      h('button', { class: 'btn', onClick: () => {
+        const studentKey = document.getElementById('lesson-student').value;
+        const date = document.getElementById('lesson-date').value;
+        const transcript = document.getElementById('lesson-transcript').value.trim();
+        if (!studentKey || !transcript) { alert('Please select a student and enter notes.'); return; }
+
+        // For now, save raw transcript to mock data
+        if (!localData.lessonTranscripts) localData.lessonTranscripts = [];
+        localData.lessonTranscripts.push({
+          id: uid(),
+          studentKey,
+          date,
+          transcript,
+          processed: false,
+          savedAt: new Date().toISOString()
+        });
+        saveLocalData();
+
+        // Clear form
+        document.getElementById('lesson-transcript').value = '';
+        alert('Transcript saved! AI processing will be available in a future update.');
+      }}, 'Save Transcript'),
+      h('p', { style: { color: 'var(--muted)', fontSize: '11px', marginTop: '8px', fontStyle: 'italic' } }, 'AI processing coming soon — for now, transcripts are saved locally.')
+    ),
+
+    // Recent transcripts
+    localData.lessonTranscripts && localData.lessonTranscripts.length > 0 ? h('div', {},
+      h('div', { class: 'label', style: { marginTop: '16px' } }, 'Saved Transcripts'),
+      ...localData.lessonTranscripts.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt)).map(t => {
+        const s = students[t.studentKey];
+        return h('div', { class: 'card' },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
+            h('div', {},
+              h('span', { style: { fontWeight: '600', fontSize: '13px' } }, s ? s.profile.name : 'Unknown'),
+              h('span', { style: { color: 'var(--muted)', fontSize: '11px', marginLeft: '8px' } }, fmtDateFull(t.date))
+            ),
+            h('span', { class: 'badge ' + (t.processed ? 'badge-green' : 'badge-yellow') }, t.processed ? 'Processed' : 'Pending')
+          ),
+          h('p', { style: { fontSize: '12px', color: 'var(--muted)', lineHeight: '1.4', maxHeight: '60px', overflow: 'hidden' } }, t.transcript)
+        );
+      })
+    ) : ''
+  );
+}
+
+// Temp state for member pickers
+let newEnsMembers = [];
+let editEnsMembers = [];
+
+function renderMemberPicker(selectedMembers, onToggle, inputId) {
+  const allStudentNames = Object.values(localData.students).map(s => s.profile.name);
+  return h('div', { class: 'form-group' },
+    h('label', {}, 'Members'),
+    h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' } },
+      ...allStudentNames.map(name => {
+        const active = selectedMembers.includes(name);
+        return h('button', {
+          class: 'btn-outline' + (active ? ' active' : ''),
+          style: { padding: '3px 10px', fontSize: '11px', cursor: 'pointer' },
+          onClick: (e) => { e.preventDefault(); onToggle(name); }
+        }, name);
+      })
+    ),
+    selectedMembers.filter(m => !allStudentNames.includes(m)).length > 0
+      ? h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' } },
+          ...selectedMembers.filter(m => !allStudentNames.includes(m)).map(name =>
+            h('span', { style: { padding: '3px 10px', borderRadius: '8px', fontSize: '11px', background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '4px' } },
+              name,
+              h('span', { style: { cursor: 'pointer', color: 'var(--red)', fontWeight: '700' }, onClick: () => onToggle(name) }, '×')
+            )
+          )
+        )
+      : '',
+    h('div', { style: { display: 'flex', gap: '6px' } },
+      h('input', { class: 'input', id: inputId, placeholder: 'Add non-student member...', style: { flex: '1' } }),
+      h('button', { class: 'btn-outline', style: { padding: '4px 10px', fontSize: '11px', whiteSpace: 'nowrap' }, onClick: () => {
+        const inp = document.getElementById(inputId);
+        const name = inp.value.trim();
+        if (name && !selectedMembers.includes(name)) { onToggle(name); }
+        inp.value = '';
+      }}, '+ Add')
+    )
+  );
+}
+
+function renderAddEnsembleForm() {
+  return h('div', { class: 'card card-accent', style: { marginBottom: '16px' } },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
+      h('div', { style: { fontWeight: '600', fontSize: '15px' } }, 'Add New Ensemble'),
+      h('button', { class: 'btn-outline', onClick: () => { showAddEnsemble = false; newEnsMembers = []; render(); } }, '✕ Cancel')
+    ),
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Ensemble Name'),
+      h('input', { class: 'input', id: 'new-ens-name', placeholder: 'e.g. Funk Cadets' })
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Schedule'),
+        h('input', { class: 'input', id: 'new-ens-schedule', placeholder: 'e.g. Sundays 2:00-4:30 PM' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Location'),
+        h('input', { class: 'input', id: 'new-ens-location', placeholder: 'e.g. Studio S, Oakland', value: 'Studio S, Oakland' })
+      )
+    ),
+    renderMemberPicker(newEnsMembers, (name) => {
+      const idx = newEnsMembers.indexOf(name);
+      if (idx === -1) newEnsMembers.push(name); else newEnsMembers.splice(idx, 1);
+      render();
+    }, 'new-ens-member-input'),
+    h('button', { class: 'btn', style: { marginTop: '4px' }, onClick: () => {
+      const name = document.getElementById('new-ens-name').value.trim();
+      const schedule = document.getElementById('new-ens-schedule').value.trim();
+      const location = document.getElementById('new-ens-location').value.trim();
+      if (!name) { alert('Please enter an ensemble name.'); return; }
+      const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      if (localData.ensembles[key]) { alert('An ensemble with a similar name already exists.'); return; }
+      localData.ensembles[key] = {
+        info: { name, schedule, location, members: [...newEnsMembers] },
+        repertoire: []
+      };
+      saveLocalData();
+      showAddEnsemble = false;
+      newEnsMembers = [];
+      render();
+    }}, 'Add Ensemble')
+  );
+}
+
+function renderEditEnsembleForm(key) {
+  const ens = localData.ensembles[key];
+  const info = ens.info;
+  // Initialize editEnsMembers from current ensemble when first opening
+  if (editingEnsemble === key && editEnsMembers._key !== key) {
+    editEnsMembers = [...(info.members || [])];
+    editEnsMembers._key = key;
+  }
+  return h('div', { class: 'card card-accent', style: { marginBottom: '16px' } },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
+      h('div', { style: { fontWeight: '600', fontSize: '15px' } }, 'Edit Ensemble — ' + info.name),
+      h('button', { class: 'btn-outline', onClick: () => { editingEnsemble = null; editEnsMembers = []; render(); } }, '✕ Cancel')
+    ),
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Ensemble Name'),
+      h('input', { class: 'input', id: 'edit-ens-name', value: info.name })
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Schedule'),
+        h('input', { class: 'input', id: 'edit-ens-schedule', value: info.schedule || '' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Location'),
+        h('input', { class: 'input', id: 'edit-ens-location', value: info.location || '' })
+      )
+    ),
+    renderMemberPicker(editEnsMembers, (name) => {
+      const idx = editEnsMembers.indexOf(name);
+      if (idx === -1) editEnsMembers.push(name); else editEnsMembers.splice(idx, 1);
+      render();
+    }, 'edit-ens-member-input'),
+    h('div', { style: { display: 'flex', gap: '8px', marginTop: '4px' } },
+      h('button', { class: 'btn', onClick: () => {
+        const name = document.getElementById('edit-ens-name').value.trim();
+        const schedule = document.getElementById('edit-ens-schedule').value.trim();
+        const location = document.getElementById('edit-ens-location').value.trim();
+        if (!name) { alert('Ensemble name is required.'); return; }
+        ens.info = { ...ens.info, name, schedule, location, members: [...editEnsMembers] };
+        saveLocalData();
+        editingEnsemble = null;
+        editEnsMembers = [];
+        render();
+      }}, 'Save Changes'),
+      h('button', { class: 'btn-outline', style: { color: 'var(--red)', borderColor: 'var(--red)' }, onClick: () => {
+        if (!confirm('Delete ' + info.name + '? This removes the ensemble and all its repertoire. This cannot be undone.')) return;
+        delete localData.ensembles[key];
+        saveLocalData();
+        editingEnsemble = null;
+        render();
+      }}, 'Delete Ensemble')
+    )
+  );
+}
+
+function renderEnsembles() {
+  const ensembles = localData.ensembles;
+  const statusColors = {
+    'performance-ready': { badge: 'badge-green', label: 'Performance Ready' },
+    'learning': { badge: 'badge-blue', label: 'Learning' },
+    'retired': { badge: 'badge-purple', label: 'Retired' }
+  };
+
+  return h('div', { class: 'pad' },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
+      h('h2', { class: 'section-title' }, 'Ensembles'),
+      !showAddEnsemble ? h('button', { class: 'btn btn-sm', onClick: () => { showAddEnsemble = true; render(); } }, '+ Add Ensemble') : ''
+    ),
+    h('p', { class: 'section-sub' }, Object.keys(ensembles).length + ' active ensembles'),
+
+    showAddEnsemble ? renderAddEnsembleForm() : '',
+
+    ...Object.entries(ensembles).map(([key, ens]) => {
+      if (editingEnsemble === key) return renderEditEnsembleForm(key);
+      const rep = ens.repertoire || [];
+      const ready = rep.filter(r => r.status === 'performance-ready').length;
+      const learning = rep.filter(r => r.status === 'learning').length;
+
+      return h('div', { class: 'ensemble-card' },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' } },
+          h('div', {},
+            h('div', { class: 'ensemble-name' }, ens.info.name),
+            h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, ens.info.schedule + ' · ' + ens.info.location)
+          ),
+          h('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } },
+            h('span', { class: 'badge badge-accent' }, rep.length + ' songs'),
+            h('button', { class: 'btn-outline', style: { padding: '2px 8px', fontSize: '10px' }, onClick: () => { editingEnsemble = key; render(); } }, 'Edit')
+          )
+        ),
+
+        h('div', { style: { marginBottom: '10px' } },
+          h('div', { class: 'label' }, 'Members'),
+          h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+            ...(ens.info.members || []).map(m =>
+              h('span', { style: { padding: '2px 10px', borderRadius: '10px', fontSize: '11px', background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)' } }, m)
+            )
+          )
+        ),
+
+        h('div', { style: { display: 'flex', gap: '12px', marginBottom: '10px', fontSize: '11px' } },
+          h('span', { style: { color: 'var(--green)' } }, ready + ' ready'),
+          h('span', { style: { color: 'var(--blue)' } }, learning + ' learning'),
+          rep.filter(r => r.status === 'retired').length > 0 ? h('span', { style: { color: 'var(--purple)' } }, rep.filter(r => r.status === 'retired').length + ' retired') : ''
+        ),
+
+        h('div', {},
+          h('div', { class: 'label' }, 'Repertoire'),
+          ...rep.map(song => {
+            // Editing this song?
+            if (editingSong && editingSong.ensKey === key && editingSong.songId === song.id) {
+              return h('div', { style: { background: 'var(--surface2)', border: '1px solid var(--accent)', borderRadius: '8px', padding: '10px', marginBottom: '6px' } },
+                h('div', { class: 'form-row' },
+                  h('div', { class: 'form-group' },
+                    h('label', {}, 'Title'),
+                    h('input', { class: 'input', id: 'edit-song-title', value: song.title })
+                  ),
+                  h('div', { class: 'form-group' },
+                    h('label', {}, 'Artist'),
+                    h('input', { class: 'input', id: 'edit-song-artist', value: song.artist })
+                  )
+                ),
+                h('div', { class: 'form-row' },
+                  h('div', { class: 'form-group' },
+                    h('label', {}, 'Status'),
+                    h('select', { class: 'input', id: 'edit-song-status' },
+                      ...['learning','performance-ready','retired'].map(st => h('option', { value: st, ...(st === song.status ? { selected: 'selected' } : {}) }, st === 'learning' ? 'Learning' : st === 'performance-ready' ? 'Performance Ready' : 'Retired'))
+                    )
+                  ),
+                  h('div', { class: 'form-group' },
+                    h('label', {}, 'Notes'),
+                    h('input', { class: 'input', id: 'edit-song-notes', value: song.notes || '' })
+                  )
+                ),
+                h('div', { style: { display: 'flex', gap: '6px', marginTop: '4px' } },
+                  h('button', { class: 'btn btn-sm', onClick: () => {
+                    song.title = document.getElementById('edit-song-title').value.trim() || song.title;
+                    song.artist = document.getElementById('edit-song-artist').value.trim() || song.artist;
+                    song.status = document.getElementById('edit-song-status').value;
+                    song.notes = document.getElementById('edit-song-notes').value.trim();
+                    saveLocalData();
+                    editingSong = null;
+                    render();
+                  }}, 'Save'),
+                  h('button', { class: 'btn-outline', onClick: () => { editingSong = null; render(); } }, 'Cancel'),
+                  h('button', { class: 'btn-outline', style: { color: 'var(--red)', borderColor: 'var(--red)', marginLeft: 'auto' }, onClick: () => {
+                    if (!confirm('Remove "' + song.title + '" from repertoire?')) return;
+                    const idx = ens.repertoire.findIndex(r => r.id === song.id);
+                    if (idx !== -1) ens.repertoire.splice(idx, 1);
+                    saveLocalData();
+                    editingSong = null;
+                    render();
+                  }}, 'Remove')
+                )
+              );
+            }
+            // Normal display — tap to edit
+            return h('div', { class: 'repertoire-item', style: { cursor: 'pointer' }, onClick: () => { editingSong = { ensKey: key, songId: song.id }; render(); } },
+              h('div', { style: { minWidth: '0' } },
+                h('div', { style: { fontSize: '13px', fontWeight: '600' } }, song.title),
+                h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, song.artist + (song.notes ? ' — ' + song.notes : ''))
+              ),
+              h('span', { class: 'badge ' + statusColors[song.status].badge }, statusColors[song.status].label)
+            );
+          }),
+          // Add song form or button
+          addingSongTo === key
+            ? h('div', { style: { background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px', marginTop: '8px' } },
+                h('div', { class: 'form-row' },
+                  h('div', { class: 'form-group' },
+                    h('label', {}, 'Title'),
+                    h('input', { class: 'input', id: 'add-song-title', placeholder: 'e.g. Superstition' })
+                  ),
+                  h('div', { class: 'form-group' },
+                    h('label', {}, 'Artist'),
+                    h('input', { class: 'input', id: 'add-song-artist', placeholder: 'e.g. Stevie Wonder' })
+                  )
+                ),
+                h('div', { class: 'form-row' },
+                  h('div', { class: 'form-group' },
+                    h('label', {}, 'Status'),
+                    h('select', { class: 'input', id: 'add-song-status' },
+                      h('option', { value: 'learning' }, 'Learning'),
+                      h('option', { value: 'performance-ready' }, 'Performance Ready'),
+                      h('option', { value: 'retired' }, 'Retired')
+                    )
+                  ),
+                  h('div', { class: 'form-group' },
+                    h('label', {}, 'Notes'),
+                    h('input', { class: 'input', id: 'add-song-notes', placeholder: 'Optional notes' })
+                  )
+                ),
+                h('div', { style: { display: 'flex', gap: '6px', marginTop: '4px' } },
+                  h('button', { class: 'btn btn-sm', onClick: () => {
+                    const title = document.getElementById('add-song-title').value.trim();
+                    const artist = document.getElementById('add-song-artist').value.trim();
+                    const status = document.getElementById('add-song-status').value;
+                    const notes = document.getElementById('add-song-notes').value.trim();
+                    if (!title) { alert('Song title is required.'); return; }
+                    if (!ens.repertoire) ens.repertoire = [];
+                    ens.repertoire.push({ id: uid(), title, artist: artist || 'Unknown', status, notes });
+                    saveLocalData();
+                    addingSongTo = null;
+                    render();
+                  }}, 'Add Song'),
+                  h('button', { class: 'btn-outline', onClick: () => { addingSongTo = null; render(); } }, 'Cancel')
+                )
+              )
+            : h('button', { class: 'btn-outline', style: { marginTop: '8px', fontSize: '11px' }, onClick: () => { addingSongTo = key; render(); } }, '+ Add Song')
+        )
+      );
+    })
+  );
+}
+
+/* ===== RENDER ===== */
+function render() {
+  if (!localData) return;
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const tabs = [
+    { icon: '👥', label: 'Students' },
+    { icon: '📅', label: 'Attendance' },
+    { icon: '💰', label: 'Payments' },
+    { icon: '📝', label: 'Lessons' },
+    { icon: '🎵', label: 'Ensembles' }
+  ];
+
+  // Header
+  app.appendChild(h('div', { class: 'header' },
+    h('div', { class: 'logo' },
+      h('span', { class: 'logo-icon' }, '🎛️'),
+      h('span', { class: 'logo-name' }, 'PROF OF FUNK'),
+      h('span', { class: 'logo-sub' }, 'ADMIN')
+    ),
+    h('button', { class: 'header-logout', onClick: logout }, 'Sign Out')
+  ));
+
+  // Content
+  const content = h('div', { class: 'content' });
+  switch (currentTab) {
+    case 0: content.appendChild(renderStudents()); break;
+    case 1: content.appendChild(renderAttendance()); break;
+    case 2: content.appendChild(renderPayments()); break;
+    case 3: content.appendChild(renderLessonInput()); break;
+    case 4: content.appendChild(renderEnsembles()); break;
+  }
+  app.appendChild(content);
+
+  // Bottom nav
+  app.appendChild(h('div', { class: 'bottom-nav' },
+    ...tabs.map((t, i) => h('button', {
+      class: 'nav-btn' + (currentTab === i ? ' active' : ''),
+      onClick: () => { currentTab = i; paymentStudent = null; editingStudent = null; editingEnsemble = null; editingSong = null; addingSongTo = null; showAddStudent = false; showAddEnsemble = false; render(); }
+    },
+      h('span', { class: 'nav-icon' }, t.icon),
+      t.label
+    ))
+  ));
+}
+
+/* ===== SERVICE WORKER ===== */
+if ('serviceWorker' in navigator) {
+  const sw = `self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>self.clients.claim());self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>new Response("Offline",{status:503}))));`;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
+}
+</script>
+</body>
+</html>

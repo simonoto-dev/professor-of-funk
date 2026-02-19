@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Prof of Funk">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="description" content="Professor of Funk — Student Portal">
+<title>Professor of Funk — Student Portal</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiUHJvZmVzc29yIG9mIEZ1bmsiLCJzaG9ydF9uYW1lIjoiUHJvZiBGdW5rIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwYTBhMGYiLCJ0aGVtZV9jb2xvciI6IiNENDk0M0EifQ==">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0f; --surface:#13131a; --surface2:#1a1a24; --border:#2a2a35;
+  --accent:#D4943A; --accent-glow:rgba(212,148,58,0.15); --accent-dim:#7A4A28;
+  --green:#4ade80; --red:#f87171; --blue:#60a5fa; --purple:#c084fc; --yellow:#fbbf24;
+  --text:#e8e8ef; --muted:#888899;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.5;}
+input,textarea,select,button{font-family:inherit;font-size:inherit;}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding-top:var(--safe-top);}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;height:52px;flex-shrink:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:8px;margin-right:auto;}
+.logo-icon{font-size:18px;}
+.logo-name{font-family:'DM Serif Display',Georgia,serif;font-size:16px;font-weight:700;color:var(--accent);}
+.logo-sub{color:var(--muted);font-size:10px;font-weight:500;display:none;}
+@media(min-width:500px){.logo-sub{display:inline;}}
+.header-user{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px;}
+.header-user span{color:var(--accent);font-weight:600;}
+.header-logout{background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--muted);font-size:10px;cursor:pointer;margin-left:8px;}
+.bottom-nav{display:flex;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:var(--safe-bottom);z-index:100;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 6px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:9px;font-weight:500;transition:color 0.2s;}
+.nav-btn.active{color:var(--accent);}
+.nav-btn .nav-icon{font-size:18px;line-height:1;}
+.content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+.pad{padding:16px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.card-accent{border-top:3px solid var(--accent);}
+.section-title{font-family:'DM Serif Display',Georgia,serif;font-size:20px;margin:0 0 4px;}
+.section-sub{color:var(--muted);font-size:12px;margin:0 0 16px;}
+.label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}
+.badge-green{background:rgba(74,222,128,0.15);color:var(--green);}
+.badge-blue{background:rgba(96,165,250,0.15);color:var(--blue);}
+.badge-purple{background:rgba(192,132,252,0.15);color:var(--purple);}
+.badge-yellow{background:rgba(251,191,36,0.15);color:var(--yellow);}
+.badge-accent{background:var(--accent-glow);color:var(--accent);}
+.btn{background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:600;font-size:13px;cursor:pointer;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;}
+.input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);outline:none;font-size:14px;}
+.input:focus{border-color:var(--accent);}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.stat-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;}
+.stat-value{font-family:'DM Serif Display',Georgia,serif;font-size:24px;font-weight:700;color:var(--text);margin:2px 0;}
+.stat-sub{color:var(--muted);font-size:11px;}
+.progress{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:4px 0;}
+.progress-fill{height:100%;border-radius:3px;transition:width 0.6s cubic-bezier(0.4,0,0.2,1);}
+.practice-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:12px 0;}
+.practice-day{text-align:center;}
+.practice-day-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;}
+.practice-check{width:36px;height:36px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto;transition:all 0.2s;}
+.practice-check.checked{background:var(--accent-glow);border-color:var(--accent);color:var(--accent);}
+.practice-check.future{opacity:0.3;cursor:default;}
+.lesson-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;border-left:3px solid var(--accent);}
+.lesson-date{font-size:11px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}
+.lesson-title{font-family:'DM Serif Display',Georgia,serif;font-size:16px;margin:4px 0 8px;}
+.lesson-concepts{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0;}
+.concept-tag{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
+.milestone{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+.milestone:last-child{border-bottom:none;}
+.milestone-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.milestone-line{width:2px;background:var(--border);margin:0 5px;flex-shrink:0;}
+.timeline{position:relative;padding-left:24px;}
+.timeline::before{content:'';position:absolute;left:5px;top:0;bottom:0;width:2px;background:var(--border);}
+.timeline-item{position:relative;padding-bottom:16px;}
+.timeline-item::before{content:'';position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;border:2px solid var(--accent);background:var(--bg);}
+.timeline-item.completed::before{background:var(--accent);}
+.resource-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;text-decoration:none;color:var(--text);transition:border-color 0.2s;}
+.resource-item:hover{border-color:var(--accent);}
+.resource-icon{font-size:20px;flex-shrink:0;}
+.resource-title{font-size:13px;font-weight:600;}
+.resource-type{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;}
+.assignment-block{background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+.assignment-label{font-size:10px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+.assignment-text{font-size:14px;line-height:1.5;}
+.streak-display{text-align:center;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;}
+.streak-number{font-family:'DM Serif Display',Georgia,serif;font-size:48px;color:var(--accent);}
+.streak-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+@media(min-width:700px){
+  .stats{grid-template-columns:repeat(4,1fr);}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+<div id="auth-gate" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
+<div style="text-align:center;padding:40px;">
+<div style="font-size:48px;margin-bottom:12px;">🎸</div>
+<div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;color:#D4943A;margin-bottom:4px;">Professor of Funk</div>
+<div style="color:#888899;font-size:12px;margin-bottom:24px;">Student Portal — Enter your access code</div>
+<input id="auth-pw" type="password" placeholder="Access code" style="width:240px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;" onkeydown="if(event.key==='Enter')checkAuth()">
+<br><button onclick="checkAuth()" style="margin-top:12px;padding:8px 32px;border-radius:10px;border:none;background:#D4943A;color:#000;font-weight:600;font-size:14px;cursor:pointer;">Enter</button>
+<div id="auth-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;">Invalid access code</div>
+</div>
+</div>
+<div class="app" id="app" style="display:none;"></div>
+<script>
+/* ===== FIREBASE SETUP ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBAVSC2g5xfnUXqkBoBX8TspITgDg_4FMo",
+  authDomain: "professor-of-funk.firebaseapp.com",
+  databaseURL: "https://professor-of-funk-default-rtdb.firebaseio.com",
+  projectId: "professor-of-funk",
+  storageBucket: "professor-of-funk.firebasestorage.app",
+  messagingSenderId: "409198973109",
+  appId: "1:409198973109:web:1c2aa4fd4611130b236efc"
+};
+const fbApp = firebase.initializeApp(firebaseConfig);
+const fbDb = firebase.database();
+const DB_ROOT = "professorOfFunk";
+
+/* ===== AUTH ===== */
+const AUTH_KEY = 'pof-portal-auth';
+let currentStudent = null;
+let currentTab = 0;
+
+async function checkAuth() {
+  const code = document.getElementById('auth-pw').value.trim().toLowerCase();
+  if (!code) { document.getElementById('auth-err').style.display = 'block'; return; }
+
+  try {
+    // Look up the student ID from the access code
+    const snap = await firebase.database().ref('professorOfFunk/meta/accessCodes/' + code).once('value');
+    const studentId = snap.val();
+    if (!studentId) {
+      document.getElementById('auth-err').style.display = 'block';
+      return;
+    }
+
+    // Sign in with Firebase Auth (access code + suffix for min password length)
+    await firebase.auth().signInWithEmailAndPassword(
+      studentId + '@professoroffunk.app',
+      code + '!PoF'
+    );
+
+    currentStudent = studentId;
+    sessionStorage.setItem(AUTH_KEY, code);
+    showApp();
+  } catch (e) {
+    console.error('Login failed:', e);
+    document.getElementById('auth-err').style.display = 'block';
+  }
+}
+
+async function showApp() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  await loadStudentData();
+  loadPracticeData();
+  setupRealtimeSync();
+  render();
+}
+
+function logout() {
+  firebase.auth().signOut();
+  sessionStorage.removeItem(AUTH_KEY);
+  currentStudent = null;
+  document.getElementById('auth-gate').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-pw').value = '';
+  document.getElementById('auth-err').style.display = 'none';
+}
+
+// Auto-login from session
+(async function() {
+  const saved = sessionStorage.getItem(AUTH_KEY);
+  if (!saved) return;
+
+  try {
+    const snap = await firebase.database().ref('professorOfFunk/meta/accessCodes/' + saved).once('value');
+    const studentId = snap.val();
+    if (!studentId) return;
+
+    await firebase.auth().signInWithEmailAndPassword(
+      studentId + '@professoroffunk.app',
+      saved + '!PoF'
+    );
+    currentStudent = studentId;
+    await showApp();
+  } catch (e) {
+    console.warn('Auto-login failed:', e);
+    sessionStorage.removeItem(AUTH_KEY);
+  }
+})();
+function dbRef(path) { return fbDb.ref(DB_ROOT + "/" + path); }
+let skipSync = false;
+
+async function fbLoad(key, fallback) {
+  try {
+    const snap = await dbRef(key).once("value");
+    const val = snap.val();
+    return val !== null ? val : fallback;
+  } catch(e) {
+    console.warn("Firebase read failed for " + key, e);
+    return fallback;
+  }
+}
+
+async function fbSave(key, val) {
+  try { await dbRef(key).set(val); } catch(e) { console.warn("Firebase write failed for " + key, e); }
+}
+
+function onDataChange(key, callback) {
+  const ref = dbRef(key);
+  ref.on("value", snap => { const val = snap.val(); if (val !== null && !skipSync) callback(val); });
+  return () => ref.off("value");
+}
+
+/* ===== STUDENT DATA (Firebase) ===== */
+let studentData = null;
+
+async function loadStudentData() {
+  if (!currentStudent) return;
+  studentData = await fbLoad("students/" + currentStudent, null);
+}
+
+function getStudentData() {
+  return studentData || { profile: { name: 'Student', instrument: '', program: '' }, lessons: {}, practice: {}, milestones: {}, resources: [] };
+}
+
+function setupRealtimeSync() {
+  if (!currentStudent) return;
+  onDataChange("students/" + currentStudent, val => {
+    studentData = val;
+    if (!skipSync) {
+      practiceData = (val && val.practice) ? JSON.parse(JSON.stringify(val.practice)) : practiceData;
+    }
+    render();
+  });
+}
+
+/* ===== PRACTICE DATA (Firebase) ===== */
+let practiceData = {};
+
+function getWeekId(date) {
+  const d = new Date(date);
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const days = Math.floor((d - jan1) / 86400000);
+  const week = Math.ceil((days + jan1.getDay() + 1) / 7);
+  return d.getFullYear() + '-W' + String(week).padStart(2, '0');
+}
+
+function loadPracticeData() {
+  if (!currentStudent) return;
+  practiceData = (studentData && studentData.practice) ? JSON.parse(JSON.stringify(studentData.practice)) : {};
+}
+
+function savePracticeData() {
+  if (!currentStudent) return;
+  skipSync = true;
+  fbSave("students/" + currentStudent + "/practice", practiceData);
+  setTimeout(() => { skipSync = false; }, 500);
+}
+
+/* ===== HELPERS ===== */
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === 'class' || k === 'className') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
+    else el.setAttribute(k, v);
+  });
+  children.flat(9).forEach(c => { if (c == null || c === false) return; el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  return el;
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+
+function getDayNames() { return ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']; }
+function getDayLabels() { return ['M', 'T', 'W', 'T', 'F', 'S', 'S']; }
+
+function getCurrentWeekDates() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((day + 6) % 7));
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
+function calcStreak() {
+  const days = getDayNames();
+  let streak = 0;
+  const today = new Date();
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const wk = getWeekId(d);
+    const dayIdx = (d.getDay() + 6) % 7; // Mon=0
+    const dayName = days[dayIdx];
+    const weekData = practiceData[wk];
+    if (weekData && weekData[dayName]) {
+      streak++;
+    } else if (i > 0) {
+      break;
+    }
+  }
+  return streak;
+}
+
+function calcMonthlyDays() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const dayNames = getDayNames();
+  let count = 0;
+  for (let d = 1; d <= Math.min(now.getDate(), daysInMonth); d++) {
+    const dt = new Date(year, month, d);
+    const wk = getWeekId(dt);
+    const dayIdx = (dt.getDay() + 6) % 7;
+    const weekData = practiceData[wk];
+    if (weekData && weekData[dayNames[dayIdx]]) count++;
+  }
+  return { practiced: count, total: daysInMonth, elapsed: now.getDate() };
+}
+
+/* ===== VIEWS ===== */
+
+function renderAssignments() {
+  const s = getStudentData();
+  const lessons = Object.values(s.lessons || {}).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const latest = lessons[0];
+  if (!latest) {
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    return h('div', { class: 'pad' },
+      h('h1', { class: 'section-title' }, greeting + ', ' + s.profile.name),
+      h('p', { class: 'section-sub' }, 'No assignments yet — your teacher will post your first practice plan after your next lesson!')
+    );
+  }
+  const plan = latest.practicePlan;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  return h('div', { class: 'pad' },
+    h('div', { style: { marginBottom: '16px' } },
+      h('h1', { class: 'section-title' }, greeting + ', ' + s.profile.name),
+      h('p', { class: 'section-sub' }, 'Here\'s your practice plan from ' + fmtDate(latest.date))
+    ),
+    h('div', { class: 'card card-accent' },
+      h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '16px', marginBottom: '12px' } }, latest.title),
+      h('div', { class: 'assignment-block' },
+        h('div', { class: 'assignment-label' }, 'Warm-up'),
+        h('div', { class: 'assignment-text' }, plan.warmup)
+      ),
+      h('div', { class: 'assignment-block' },
+        h('div', { class: 'assignment-label' }, 'Technical Exercise'),
+        h('div', { class: 'assignment-text' }, plan.technical)
+      ),
+      h('div', { class: 'assignment-block' },
+        h('div', { class: 'assignment-label' }, 'Repertoire'),
+        h('div', { class: 'assignment-text' }, plan.repertoire)
+      ),
+      h('div', { class: 'assignment-block', style: { background: 'var(--accent-glow)', border: '1px solid rgba(212,148,58,0.3)' } },
+        h('div', { class: 'assignment-label' }, 'Goal for Next Lesson'),
+        h('div', { class: 'assignment-text', style: { fontWeight: '600' } }, plan.goal)
+      )
+    ),
+    latest.keyConcepts.length ? h('div', { style: { marginTop: '8px' } },
+      h('div', { class: 'label' }, 'Key Concepts'),
+      h('div', { class: 'lesson-concepts' },
+        ...latest.keyConcepts.map(c => h('span', { class: 'concept-tag' }, c))
+      )
+    ) : ''
+  );
+}
+
+function renderPractice() {
+  const s = getStudentData();
+  const weekDates = getCurrentWeekDates();
+  const dayNames = getDayNames();
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const today = new Date();
+  const currentWeekId = getWeekId(today);
+  const weekData = practiceData[currentWeekId] || {};
+  const streak = calcStreak();
+  const monthly = calcMonthlyDays();
+
+  return h('div', { class: 'pad' },
+    h('h2', { class: 'section-title' }, 'Practice Tracker'),
+    h('p', { class: 'section-sub' }, 'Check off each day you practice'),
+
+    h('div', { class: 'streak-display' },
+      h('div', { class: 'streak-number' }, '' + streak),
+      h('div', { class: 'streak-label' }, streak === 1 ? 'Day Streak' : 'Day Streak'),
+      streak >= 7 ? h('div', { style: { marginTop: '4px', fontSize: '16px' } }, '🔥') : ''
+    ),
+
+    h('div', { class: 'card' },
+      h('div', { class: 'label' }, 'This Week'),
+      h('div', { class: 'practice-grid' },
+        ...weekDates.map((date, i) => {
+          const dayName = dayNames[i];
+          const checked = weekData[dayName] || false;
+          const isFuture = date > today;
+          const isToday = date.toDateString() === today.toDateString();
+          return h('div', { class: 'practice-day' },
+            h('div', { class: 'practice-day-label', style: isToday ? { color: 'var(--accent)' } : {} }, dayLabels[i]),
+            h('div', { style: { fontSize: '10px', color: 'var(--muted)', marginBottom: '4px' } }, '' + date.getDate()),
+            h('div', {
+              class: 'practice-check' + (checked ? ' checked' : '') + (isFuture ? ' future' : ''),
+              onClick: () => {
+                if (isFuture) return;
+                if (!practiceData[currentWeekId]) practiceData[currentWeekId] = {};
+                practiceData[currentWeekId][dayName] = !checked;
+                savePracticeData();
+                render();
+              }
+            }, checked ? '✓' : '')
+          );
+        })
+      )
+    ),
+
+    h('div', { class: 'card' },
+      h('div', { class: 'label' }, 'Monthly Summary'),
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' } },
+        h('span', { style: { fontSize: '13px' } }, monthly.practiced + ' / ' + monthly.elapsed + ' days practiced'),
+        h('span', { style: { fontSize: '12px', color: 'var(--accent)', fontWeight: '600' } }, Math.round(monthly.practiced / Math.max(monthly.elapsed, 1) * 100) + '%')
+      ),
+      h('div', { class: 'progress' },
+        h('div', { class: 'progress-fill', style: { width: Math.round(monthly.practiced / Math.max(monthly.elapsed, 1) * 100) + '%', background: 'var(--accent)' } })
+      )
+    ),
+
+    h('div', { class: 'card' },
+      h('div', { class: 'label' }, 'What I Worked On Today'),
+      h('textarea', {
+        class: 'input',
+        rows: '3',
+        placeholder: 'Optional — jot down what you practiced...',
+        style: { resize: 'vertical' },
+        value: (() => {
+          const wk = practiceData[currentWeekId];
+          const todayDay = dayNames[(today.getDay() + 6) % 7];
+          return (wk && wk.notes && wk.notes[todayDay]) || '';
+        })(),
+        onInput: (e) => {
+          if (!practiceData[currentWeekId]) practiceData[currentWeekId] = {};
+          if (!practiceData[currentWeekId].notes) practiceData[currentWeekId].notes = {};
+          const todayDay = dayNames[(today.getDay() + 6) % 7];
+          practiceData[currentWeekId].notes[todayDay] = e.target.value;
+          savePracticeData();
+        }
+      })
+    )
+  );
+}
+
+function renderLessons() {
+  const s = getStudentData();
+  const lessons = Object.entries(s.lessons || {})
+    .map(([id, l]) => ({ id, ...l }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  return h('div', { class: 'pad' },
+    h('h2', { class: 'section-title' }, 'Lesson History'),
+    h('p', { class: 'section-sub' }, lessons.length + ' lessons on record'),
+    ...lessons.map(l =>
+      h('div', { class: 'lesson-card' },
+        h('div', { class: 'lesson-date' }, fmtDate(l.date)),
+        h('div', { class: 'lesson-title' }, l.title),
+        h('p', { style: { fontSize: '13px', color: 'var(--muted)', lineHeight: '1.5', marginBottom: '8px' } }, l.summary),
+        l.keyConcepts && l.keyConcepts.length ? h('div', {},
+          h('div', { class: 'label', style: { marginTop: '8px' } }, 'Key Concepts'),
+          h('div', { class: 'lesson-concepts' },
+            ...l.keyConcepts.map(c => h('span', { class: 'concept-tag' }, c))
+          )
+        ) : '',
+        l.areasOfFocus && l.areasOfFocus.length ? h('div', {},
+          h('div', { class: 'label', style: { marginTop: '8px' } }, 'Areas of Focus'),
+          h('div', { style: { fontSize: '12px', color: 'var(--text)' } },
+            ...l.areasOfFocus.map((a, i) => h('span', {}, (i > 0 ? ' · ' : '') + a))
+          )
+        ) : ''
+      )
+    )
+  );
+}
+
+function renderProgress() {
+  const s = getStudentData();
+  const milestones = Object.entries(s.milestones || {})
+    .map(([id, m]) => ({ id, ...m }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const categoryColors = {
+    technique: { bg: 'rgba(212,148,58,0.15)', color: 'var(--accent)', dot: 'var(--accent)' },
+    theory: { bg: 'rgba(96,165,250,0.15)', color: 'var(--blue)', dot: 'var(--blue)' },
+    repertoire: { bg: 'rgba(74,222,128,0.15)', color: 'var(--green)', dot: 'var(--green)' },
+    performance: { bg: 'rgba(192,132,252,0.15)', color: 'var(--purple)', dot: 'var(--purple)' },
+    'ear training': { bg: 'rgba(251,191,36,0.15)', color: 'var(--yellow)', dot: 'var(--yellow)' }
+  };
+
+  return h('div', { class: 'pad' },
+    h('h2', { class: 'section-title' }, 'Progress Timeline'),
+    h('p', { class: 'section-sub' }, milestones.length + ' milestones achieved'),
+
+    h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' } },
+      ...Object.keys(categoryColors).map(cat =>
+        h('span', { class: 'badge', style: { background: categoryColors[cat].bg, color: categoryColors[cat].color } }, cat)
+      )
+    ),
+
+    h('div', { class: 'timeline' },
+      ...milestones.map(m => {
+        const cc = categoryColors[m.category] || categoryColors.technique;
+        return h('div', { class: 'timeline-item completed' },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' } },
+            h('div', { style: { fontWeight: '600', fontSize: '14px' } }, m.title),
+            h('span', { style: { fontSize: '10px', color: 'var(--muted)', flexShrink: '0', marginLeft: '8px' } }, fmtDate(m.date))
+          ),
+          h('span', { class: 'badge', style: { background: cc.bg, color: cc.color, marginBottom: '4px' } }, m.category),
+          h('p', { style: { fontSize: '12px', color: 'var(--muted)', lineHeight: '1.4' } }, m.description)
+        );
+      })
+    )
+  );
+}
+
+function renderResources() {
+  const s = getStudentData();
+  const resources = s.resources || [];
+  const typeIcons = { PDF: '📄', Video: '🎬', Audio: '🎵', Link: '🔗' };
+
+  return h('div', { class: 'pad' },
+    h('h2', { class: 'section-title' }, 'My Resources'),
+    h('p', { class: 'section-sub' }, 'Materials from your lessons'),
+    ...resources.map(r =>
+      h('a', { class: 'resource-item', href: r.url },
+        h('span', { class: 'resource-icon' }, typeIcons[r.type] || '📁'),
+        h('div', { style: { flex: '1', minWidth: '0' } },
+          h('div', { class: 'resource-title' }, r.title),
+          h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+            h('span', { class: 'resource-type' }, r.type),
+            h('span', { style: { fontSize: '10px', color: 'var(--muted)' } }, fmtDate(r.lessonDate))
+          )
+        ),
+        h('span', { style: { color: 'var(--muted)', fontSize: '16px' } }, '→')
+      )
+    ),
+    resources.length === 0 ? h('p', { style: { color: 'var(--muted)', textAlign: 'center', padding: '30px' } }, 'No resources yet.') : ''
+  );
+}
+
+/* ===== RENDER ===== */
+function render() {
+  if (!currentStudent) return;
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const s = getStudentData();
+  const tabs = [
+    { icon: '📋', label: 'Assignments' },
+    { icon: '🎯', label: 'Practice' },
+    { icon: '📖', label: 'Lessons' },
+    { icon: '📈', label: 'Progress' },
+    { icon: '📁', label: 'Resources' }
+  ];
+
+  // Header
+  app.appendChild(h('div', { class: 'header' },
+    h('div', { class: 'logo' },
+      h('span', { class: 'logo-icon' }, '🎸'),
+      h('span', { class: 'logo-name' }, 'PROF OF FUNK'),
+      h('span', { class: 'logo-sub' }, 'STUDENT PORTAL')
+    ),
+    h('div', { class: 'header-user' },
+      h('span', {}, s.profile.name),
+      h('button', { class: 'header-logout', onClick: logout }, 'Sign Out')
+    )
+  ));
+
+  // Content
+  const content = h('div', { class: 'content' });
+  switch (currentTab) {
+    case 0: content.appendChild(renderAssignments()); break;
+    case 1: content.appendChild(renderPractice()); break;
+    case 2: content.appendChild(renderLessons()); break;
+    case 3: content.appendChild(renderProgress()); break;
+    case 4: content.appendChild(renderResources()); break;
+  }
+  app.appendChild(content);
+
+  // Bottom nav
+  app.appendChild(h('div', { class: 'bottom-nav' },
+    ...tabs.map((t, i) => h('button', {
+      class: 'nav-btn' + (currentTab === i ? ' active' : ''),
+      onClick: () => { currentTab = i; render(); }
+    },
+      h('span', { class: 'nav-icon' }, t.icon),
+      t.label
+    ))
+  ));
+}
+
+/* ===== SERVICE WORKER ===== */
+if ('serviceWorker' in navigator) {
+  const sw = `self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>self.clients.claim());self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>new Response("Offline",{status:503}))));`;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
+}
+</script>
+</body>
+</html>

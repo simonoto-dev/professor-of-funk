@@ -1,0 +1,42 @@
+{
+  "rules": {
+    "professorOfFunk": {
+      "students": {
+        "$studentId": {
+          ".read": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1' || auth.uid === data.child('profile/authUid').val() || auth.uid === data.child('profile/parentAuthUid').val()",
+          ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'",
+          "practice": {
+            ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1' || auth.uid === data.parent().child('profile/authUid').val()"
+          }
+        }
+      },
+      "meta": {
+        "accessCodes": {
+          "$code": {
+            ".read": true
+          }
+        },
+        "parentAccessCodes": {
+          "$code": {
+            ".read": true
+          }
+        },
+        ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'"
+      },
+      "parents": {
+        "$parentId": {
+          ".read": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1' || auth.uid === data.child('profile/authUid').val()",
+          ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'"
+        }
+      },
+      "ensembles": {
+        ".read": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'",
+        ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'"
+      },
+      "lessonTranscripts": {
+        ".read": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'",
+        ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'"
+      }
+    }
+  }
+}
