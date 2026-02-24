@@ -119,157 +119,6 @@ input,textarea,select,button{font-family:inherit;font-size:inherit;}
 </div>
 <div class="app" id="app" style="display:none;"></div>
 <script>
-/* ===== MOCK DATA (Firebase-schema-aligned) ===== */
-const MOCK_DATA = {
-  students: {
-    mason: {
-      profile: { name: "Mason", instrument: "Guitar", program: "Private Lessons", startDate: "2024-09-10", accessCode: "mason1", parentName: "David & Sarah", parentEmail: "mason.parents@email.com" },
-      lessons: {
-        "les-m1": { date: "2026-02-05", title: "Blues Improvisation Foundations", summary: "Focused on minor pentatonic positions 1 and 2. Worked on bending technique — targeting half-step and whole-step bends in tune. Introduced the concept of 'call and response' phrasing over a 12-bar blues in A. Mason's timing is solid but needs to work on landing on chord tones during changes.", keyConcepts: ["Minor Pentatonic", "String Bending", "Call & Response", "Blues Form"], areasOfFocus: ["Intonation on bends", "Chord tone targeting"], practicePlan: { warmup: "Chromatic spider exercise — 4 frets, all 6 strings, 80 BPM with metronome. Focus on clean fretting and even tone.", technical: "Minor pentatonic Position 1 and 2 in A — ascending/descending, then connecting the two positions. Use the neck diagram handout.", repertoire: "Solo over 'Pride and Joy' backing track. Focus on using ONLY Position 1 for the first week. Record yourself and listen back.", goal: "Be able to play through both pentatonic positions smoothly without stopping by next lesson." }, resources: [] },
-        "les-m2": { date: "2026-01-29", title: "Power Chords & Palm Muting", summary: "Reviewed open chords from previous weeks — solid. Introduced power chords (root-5th and root-5th-octave voicings). Worked on palm muting technique for tight, percussive rhythm playing. Applied to 'Smoke on the Water' riff and a simple punk progression (I-IV-V). Mason picked this up quickly, good left hand strength.", keyConcepts: ["Power Chords", "Palm Muting", "Rhythm Guitar", "Riff Playing"], areasOfFocus: ["Muting unused strings", "Consistent palm mute pressure"], practicePlan: { warmup: "Open chord transitions: G-C-D, Em-Am-G, 60 BPM, one strum per beat. Smooth changes, no buzzing.", technical: "Power chord shapes up and down the E and A strings. Play each chord 4 times, move to next fret. Full neck.", repertoire: "'Smoke on the Water' main riff — slow tempo first, then build to original speed. Use palm muting on the low notes.", goal: "Play 'Smoke on the Water' riff cleanly at full tempo with proper palm muting." }, resources: [] },
-        "les-m3": { date: "2026-01-22", title: "Open Chords & Strumming Patterns", summary: "Continued building the open chord vocabulary. Added D major and A major to the existing G, C, Em, Am. Introduced a down-up strumming pattern with accents on beats 2 and 4 (backbeat feel). Discussed the importance of loose wrist motion for strumming. Mason tends to tense up — reminded him to breathe and stay relaxed.", keyConcepts: ["Open Chords", "Strumming Patterns", "Backbeat Feel", "Right Hand Technique"], areasOfFocus: ["Wrist tension", "Chord change speed"], practicePlan: { warmup: "Finger stretches and individual finger exercises on each string, frets 1-4.", technical: "Chord changes: cycle through G-C-D-Em-Am-D. Use a timer — see how many clean changes in 60 seconds.", repertoire: "Strum through 'Knockin on Heaven's Door' chord progression with the down-up pattern. Focus on keeping time, not speed.", goal: "Smooth chord changes between all 6 open chords without looking at left hand." }, resources: [] }
-      },
-      practice: {
-        "2026-W06": { mon: true, tue: true, wed: false, thu: true, fri: false, sat: true, sun: false, notes: { mon: "Worked on pentatonic positions", thu: "Bending practice 20 min", sat: "Jammed with backing tracks" } },
-        "2026-W07": { mon: true, tue: false, wed: true, thu: true, fri: true, sat: false, sun: true, notes: { mon: "Chromatic warmup + chords", wed: "Palm muting exercises", fri: "Tried writing a riff" } }
-      },
-      milestones: {
-        "ms-m1": { date: "2024-10-15", title: "First Open Chords", category: "technique", description: "Learned G, C, Em, Am — clean changes between all four." },
-        "ms-m2": { date: "2024-12-10", title: "First Song Learned", category: "repertoire", description: "Played through 'Knockin on Heaven's Door' start to finish." },
-        "ms-m3": { date: "2025-03-20", title: "Pentatonic Scale Mastery", category: "technique", description: "All 5 positions of minor pentatonic, connected across the neck." },
-        "ms-m4": { date: "2025-06-14", title: "First Improvisation", category: "performance", description: "Soloed over a 12-bar blues backing track — stayed in key, used dynamics." },
-        "ms-m5": { date: "2025-09-22", title: "Barre Chords Unlocked", category: "technique", description: "Clean F major and Bm barre chords. Can transition from open to barre." },
-        "ms-m6": { date: "2026-01-15", title: "Blues Form Understanding", category: "theory", description: "Can identify I-IV-V in any key, understands 12-bar blues structure." }
-      },
-      resources: [
-        { id: "r-m1", title: "Minor Pentatonic Neck Diagram", type: "PDF", url: "#", lessonDate: "2026-02-05" },
-        { id: "r-m2", title: "Blues Backing Track in A", type: "Audio", url: "#", lessonDate: "2026-02-05" },
-        { id: "r-m3", title: "Power Chord Reference Sheet", type: "PDF", url: "#", lessonDate: "2026-01-29" },
-        { id: "r-m4", title: "Strumming Patterns Video", type: "Video", url: "#", lessonDate: "2026-01-22" },
-        { id: "r-m5", title: "Open Chord Chart", type: "PDF", url: "#", lessonDate: "2026-01-22" }
-      ]
-    },
-    micah: {
-      profile: { name: "Micah", instrument: "Guitar", program: "Private Lessons", startDate: "2025-01-15", accessCode: "micah1", parentName: "Jennifer", parentEmail: "micah.parent@email.com" },
-      lessons: {
-        "les-mi1": { date: "2026-02-07", title: "Funk Rhythm & 16th Note Strumming", summary: "Micah is ready for more advanced rhythm work. Introduced 16th note strumming with ghost strums (hitting muted strings to keep the hand moving). Worked on a classic funk pattern inspired by Nile Rodgers. Emphasized the importance of the right hand never stopping — 'the hand is the metronome.' Applied the pattern over an Em7-A9 vamp. Micah's got great feel but rushes the upbeats.", keyConcepts: ["16th Note Strumming", "Ghost Strums", "Funk Rhythm", "Right Hand Technique"], areasOfFocus: ["Keeping right hand constant", "Not rushing upbeats"], practicePlan: { warmup: "16th note strumming on muted strings only — 70 BPM, 2 minutes straight. Hand never stops.", technical: "Funk pattern #1 over Em7 chord. Accent beats 1 and 3, ghost strum everything else. Record and listen for evenness.", repertoire: "Learn the intro to 'Le Freak' by Chic — focus on the scratch rhythm. Don't worry about exact notes yet, get the FEEL.", goal: "Play the funk strumming pattern for 2 minutes straight without losing the groove." }, resources: [] },
-        "les-mi2": { date: "2026-01-31", title: "CAGED System — C and A Shapes", summary: "Began the CAGED system for understanding the entire fretboard. Covered C shape and A shape barre chords, showing how they connect. Micah already knows basic barre chords so this is about seeing the PATTERN across the neck. Drew out the fretboard showing where C major lives in all 5 positions. Lightbulb moment when he saw the shapes overlap.", keyConcepts: ["CAGED System", "Barre Chord Shapes", "Fretboard Visualization"], areasOfFocus: ["Visualizing shapes across the neck", "Clean barre technique in higher positions"], practicePlan: { warmup: "Barre chord workout: F, Bb, Eb, Ab — hold each for 8 beats, check each string rings clean.", technical: "Play C major using the C shape (open), then A shape (3rd fret barre), up the neck. Say the fret number out loud.", repertoire: "Pick any song you know in C. Play it using the open C chord, then transpose using the A shape at fret 3.", goal: "Find C major in the C shape and A shape without hesitation. Know which frets." }, resources: [] },
-        "les-mi3": { date: "2026-01-24", title: "Major Scale Patterns & Intervals", summary: "Reviewed the major scale in 2 positions. Introduced the concept of intervals — specifically the sound of each interval from the root (unison through octave). Used singing to internalize intervals before playing. Micah has a good ear and picked up on the 'character' of each interval quickly. Connected intervals to chord construction (root, 3rd, 5th).", keyConcepts: ["Major Scale", "Intervals", "Ear Training", "Chord Construction"], areasOfFocus: ["Singing intervals before playing", "Connecting theory to fretboard"], practicePlan: { warmup: "Major scale in G — Position 1 and 2. Ascending, descending, then in 3rds (1-3, 2-4, 3-5...).", technical: "Interval recognition: play root, then each interval up to octave. Sing each one before fretting.", repertoire: "Figure out the melody of 'Happy Birthday' by ear using the major scale. Start on G.", goal: "Name and play all intervals within an octave from any given root note." }, resources: [] }
-      },
-      practice: {
-        "2026-W06": { mon: true, tue: true, wed: true, thu: false, fri: true, sat: true, sun: true, notes: { mon: "Funk strumming 30 min", wed: "CAGED shapes practice", fri: "Ear training with app", sun: "Jammed on Le Freak" } },
-        "2026-W07": { mon: true, tue: true, wed: true, thu: true, fri: false, sat: true, sun: true, notes: { mon: "Scale patterns", thu: "Worked on singing intervals", sat: "Full practice routine" } }
-      },
-      milestones: {
-        "ms-mi1": { date: "2025-02-20", title: "Open Chords Mastered", category: "technique", description: "All major and minor open chords with clean transitions." },
-        "ms-mi2": { date: "2025-05-10", title: "First Barre Chords", category: "technique", description: "F and Bm barre chords, can use in songs." },
-        "ms-mi3": { date: "2025-08-15", title: "Major Scale — 2 Positions", category: "theory", description: "Plays G major scale in two positions, understands the pattern." },
-        "ms-mi4": { date: "2025-11-01", title: "First Performance", category: "performance", description: "Played 'Wonderful Tonight' at family gathering — nailed it." },
-        "ms-mi5": { date: "2026-01-24", title: "Interval Recognition", category: "theory", description: "Can identify and sing all intervals within an octave." },
-        "ms-mi6": { date: "2026-01-31", title: "CAGED Foundations", category: "theory", description: "Understands C and A shapes of the CAGED system across the fretboard." }
-      },
-      resources: [
-        { id: "r-mi1", title: "CAGED System Diagram", type: "PDF", url: "#", lessonDate: "2026-01-31" },
-        { id: "r-mi2", title: "Funk Strumming Patterns Guide", type: "PDF", url: "#", lessonDate: "2026-02-07" },
-        { id: "r-mi3", title: "Interval Reference Chart", type: "PDF", url: "#", lessonDate: "2026-01-24" },
-        { id: "r-mi4", title: "Major Scale Positions Diagram", type: "PDF", url: "#", lessonDate: "2026-01-24" },
-        { id: "r-mi5", title: "Nile Rodgers Funk Breakdown", type: "Video", url: "#", lessonDate: "2026-02-07" }
-      ]
-    },
-    sienna: {
-      profile: { name: "Sienna", instrument: "Guitar", program: "Private Lessons", startDate: "2025-06-01", accessCode: "sienna1", parentName: "Mark & Lisa", parentEmail: "sienna.parents@email.com" },
-      lessons: {
-        "les-s1": { date: "2026-02-06", title: "Fingerpicking Patterns & Travis Picking", summary: "Sienna expressed interest in fingerstyle guitar. Introduced basic fingerpicking pattern: thumb on bass notes (strings 6-4), index-middle-ring on treble strings (3-1). Worked on a simple Travis picking pattern in C and G. She has naturally good finger independence which is great. Main challenge is keeping the thumb steady while the fingers play melody.", keyConcepts: ["Fingerpicking", "Travis Picking", "Finger Independence", "Bass/Melody Separation"], areasOfFocus: ["Steady alternating thumb", "Not looking at right hand"], practicePlan: { warmup: "Right hand only: rest fingers on strings 3-2-1. Pluck index-middle-ring in sequence, 60 BPM. 3 minutes.", technical: "Travis picking pattern in C: thumb alternates between strings 5 and 4, fingers play 3-2-1. Go SLOW — 50 BPM.", repertoire: "Learn the intro to 'Dust in the Wind' — just the picking pattern, don't worry about the chord changes yet.", goal: "Play the Travis picking pattern in C for 1 minute without the thumb stopping." }, resources: [] },
-        "les-s2": { date: "2026-01-30", title: "Minor Chords & Emotional Color", summary: "Built on Sienna's open major chords by introducing Am, Em, and Dm. Discussed how minor chords sound 'sad' or 'dark' compared to major chords. Played major and minor versions of the same root so she could hear the difference. Started a simple song arrangement using both major and minor chords — 'House of the Rising Sun' (Am-C-D-F-Am-E). Sienna connected with the emotional quality immediately.", keyConcepts: ["Minor Chords", "Major vs Minor", "Emotional Quality", "Song Arrangement"], areasOfFocus: ["Clean Am chord", "Quick changes between Am and C"], practicePlan: { warmup: "Chord review: strum each chord (G, C, D, E, A, Am, Em, Dm) 4 times. Check every string rings clean.", technical: "Major vs minor pairs: A/Am, E/Em, D/Dm. Switch between each pair on every beat, 50 BPM.", repertoire: "'House of the Rising Sun' — play through the full progression with a simple arpeggio (one note per string, low to high). Slow tempo.", goal: "Play through 'House of the Rising Sun' arpeggio pattern without stopping." }, resources: [] },
-        "les-s3": { date: "2026-01-23", title: "Reading Chord Diagrams & Tab", summary: "Sienna wanted to learn songs on her own, so we covered how to read chord diagrams and guitar tablature. Went through the symbols: X for muted strings, O for open, numbers for frets. Then introduced basic tab notation — showed how tabs correspond to what she plays. Applied by reading a simple tab for 'Seven Nation Army' riff. She caught on fast and was reading new tabs by end of lesson.", keyConcepts: ["Chord Diagrams", "Tablature", "Music Reading", "Self-Learning Skills"], areasOfFocus: ["Interpreting rhythm from tab", "Finding fret positions quickly"], practicePlan: { warmup: "Practice reading 3 new chord diagrams from the chord book — play each one, check your fingering matches the diagram.", technical: "Read and play the tab for 'Seven Nation Army' riff. Then try 'Smoke on the Water' tab from the sheet.", repertoire: "Find a song you like on Ultimate Guitar (tabs). Try to learn the first verse chords by reading the chord diagrams yourself.", goal: "Be able to look at any chord diagram and play the chord correctly within 10 seconds." }, resources: [] }
-      },
-      practice: {
-        "2026-W06": { mon: false, tue: true, wed: false, thu: true, fri: false, sat: false, sun: true, notes: { tue: "Fingerpicking exercises", thu: "House of the Rising Sun", sun: "Practiced reading tabs" } },
-        "2026-W07": { mon: true, tue: false, wed: true, thu: false, fri: true, sat: false, sun: false, notes: { mon: "Travis picking in C", wed: "Minor chord changes", fri: "Learned a new song from tabs" } }
-      },
-      milestones: {
-        "ms-s1": { date: "2025-07-10", title: "First Chords", category: "technique", description: "Learned G and C major — first two chords!" },
-        "ms-s2": { date: "2025-09-05", title: "First Full Song", category: "repertoire", description: "Played 'Three Little Birds' with all chord changes and strumming." },
-        "ms-s3": { date: "2025-11-20", title: "Reading Chord Diagrams", category: "theory", description: "Can independently read chord diagrams and learn new chords." },
-        "ms-s4": { date: "2026-01-23", title: "Tab Reading", category: "theory", description: "Can read and play guitar tablature independently." },
-        "ms-s5": { date: "2026-02-06", title: "Fingerpicking Introduction", category: "technique", description: "Started fingerpicking — good natural finger independence." }
-      },
-      resources: [
-        { id: "r-s1", title: "Travis Picking Diagram", type: "PDF", url: "#", lessonDate: "2026-02-06" },
-        { id: "r-s2", title: "Fingerpicking Exercises Video", type: "Video", url: "#", lessonDate: "2026-02-06" },
-        { id: "r-s3", title: "Chord Diagram Reference", type: "PDF", url: "#", lessonDate: "2026-01-23" },
-        { id: "r-s4", title: "Tab Reading Guide", type: "PDF", url: "#", lessonDate: "2026-01-23" }
-      ]
-    }
-  }
-};
-
-/* ===== AUTH ===== */
-const AUTH_KEY = 'pof-portal-auth';
-// Fallback codes — will be overridden by Firebase data once loaded
-let ACCESS_CODES = { mason1: 'mason', micah1: 'micah', sienna1: 'sienna' };
-let accessCodesLoaded = false;
-let currentStudent = null;
-let currentTab = 0;
-
-async function loadAccessCodes() {
-  try {
-    const snap = await dbRef("students").once("value");
-    const students = snap.val();
-    if (students) {
-      const codes = {};
-      Object.keys(students).forEach(key => {
-        const code = students[key].profile && students[key].profile.accessCode;
-        if (code) codes[code] = key;
-      });
-      ACCESS_CODES = codes;
-    }
-  } catch(e) { console.warn("Could not load access codes from Firebase, using fallback", e); }
-  accessCodesLoaded = true;
-}
-
-async function checkAuth() {
-  const code = document.getElementById('auth-pw').value.trim().toLowerCase();
-  if (!accessCodesLoaded) await loadAccessCodes();
-  if (ACCESS_CODES[code]) {
-    currentStudent = ACCESS_CODES[code];
-    sessionStorage.setItem(AUTH_KEY, code);
-    showApp();
-  } else {
-    document.getElementById('auth-err').style.display = 'block';
-  }
-}
-
-async function showApp() {
-  document.getElementById('auth-gate').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  await waitForAuth();
-  await loadStudentData();
-  loadPracticeData();
-  setupRealtimeSync();
-  render();
-}
-
-function logout() {
-  sessionStorage.removeItem(AUTH_KEY);
-  currentStudent = null;
-  document.getElementById('auth-gate').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('auth-pw').value = '';
-  document.getElementById('auth-err').style.display = 'none';
-}
-
-// Check session on load — also preload access codes from Firebase
-(async function() {
-  await waitForAuth();
-  await loadAccessCodes();
-  const saved = sessionStorage.getItem(AUTH_KEY);
-  if (saved && ACCESS_CODES[saved]) {
-    currentStudent = ACCESS_CODES[saved];
-    await showApp();
-  }
-})();
-
 /* ===== FIREBASE SETUP ===== */
 const firebaseConfig = {
   apiKey: "AIzaSyBAVSC2g5xfnUXqkBoBX8TspITgDg_4FMo",
@@ -281,20 +130,10 @@ const firebaseConfig = {
   appId: "1:409198973109:web:1c2aa4fd4611130b236efc"
 };
 const fbApp = firebase.initializeApp(firebaseConfig);
-firebase.auth().signInAnonymously().catch(e => console.warn("Anon auth failed", e));
 const fbDb = firebase.database();
 const DB_ROOT = "professorOfFunk";
 function dbRef(path) { return fbDb.ref(DB_ROOT + "/" + path); }
 let skipSync = false;
-
-function waitForAuth() {
-  return new Promise(resolve => {
-    const unsub = firebase.auth().onAuthStateChanged(user => {
-      if (user) { unsub(); resolve(user); }
-    });
-    setTimeout(() => { unsub(); resolve(null); }, 5000);
-  });
-}
 
 async function fbLoad(key, fallback) {
   try {
@@ -317,16 +156,85 @@ function onDataChange(key, callback) {
   return () => ref.off("value");
 }
 
+/* ===== AUTH ===== */
+const AUTH_KEY = 'pof-portal-student';
+let currentStudent = null;
+let currentTab = 0;
+
+async function checkAuth() {
+  const code = document.getElementById('auth-pw').value.trim().toLowerCase();
+  if (!code) return;
+  const errEl = document.getElementById('auth-err');
+  errEl.style.display = 'none';
+  try {
+    // 1. Look up access code → student key (public read)
+    const snap = await fbDb.ref(DB_ROOT + "/meta/accessCodes/" + code).once("value");
+    const studentKey = snap.val();
+    if (!studentKey) { errEl.style.display = 'block'; return; }
+    // 2. Sign in with Firebase Auth (email/password created by admin)
+    await firebase.auth().signInWithEmailAndPassword(
+      studentKey + '@professoroffunk.app',
+      code + '!PoF'
+    );
+    currentStudent = studentKey;
+    sessionStorage.setItem(AUTH_KEY, studentKey);
+    showApp();
+  } catch (e) {
+    console.error('Auth failed:', e);
+    errEl.textContent = e.code === 'auth/invalid-credential' ? 'Invalid access code or account not set up' : 'Login failed — please try again';
+    errEl.style.display = 'block';
+  }
+}
+
+async function showApp() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  await loadStudentData();
+  loadPracticeData();
+  setupRealtimeSync();
+  render();
+}
+
+function logout() {
+  firebase.auth().signOut();
+  sessionStorage.removeItem(AUTH_KEY);
+  currentStudent = null;
+  document.getElementById('auth-gate').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-pw').value = '';
+  document.getElementById('auth-err').style.display = 'none';
+}
+
+// Auto-login: check if Firebase Auth session is still valid
+firebase.auth().onAuthStateChanged(user => {
+  if (user && !currentStudent) {
+    const saved = sessionStorage.getItem(AUTH_KEY);
+    if (saved) {
+      currentStudent = saved;
+      showApp();
+    }
+  }
+});
+
 /* ===== STUDENT DATA (Firebase) ===== */
 let studentData = null;
+let ensembleData = null;
 
 async function loadStudentData() {
   if (!currentStudent) return;
-  studentData = await fbLoad("students/" + currentStudent, MOCK_DATA.students[currentStudent]);
+  studentData = await fbLoad("students/" + currentStudent, null);
+  // Load ensemble data if student is in an ensemble program
+  ensembleData = null;
+  if (studentData && studentData.programs) {
+    const ensProg = Object.values(studentData.programs).find(pr => pr.type === 'ensemble' && pr.ensembleId);
+    if (ensProg) {
+      ensembleData = await fbLoad("ensembles/" + ensProg.ensembleId, null);
+    }
+  }
 }
 
 function getStudentData() {
-  return studentData || MOCK_DATA.students[currentStudent] || { profile: { name: currentStudent, instrument: '', program: '' }, lessons: {}, practice: {}, milestones: {}, resources: [] };
+  return studentData || { profile: { name: currentStudent, instrument: '' }, lessons: {}, practice: {}, milestones: {}, resources: {} };
 }
 
 function setupRealtimeSync() {
@@ -437,21 +345,42 @@ function calcMonthlyDays() {
 
 /* ===== VIEWS ===== */
 
+function renderEnsembleAssignments() {
+  if (!ensembleData || !ensembleData.assignments) return '';
+  const allAssignments = Array.isArray(ensembleData.assignments) ? ensembleData.assignments : Object.values(ensembleData.assignments);
+  // Show group assignments (no studentKey) + assignments targeted at this student
+  const assignments = allAssignments.filter(a => !a.studentKey || a.studentKey === currentStudent);
+  if (assignments.length === 0) return '';
+  // Sort by assignedDate descending
+  assignments.sort((a, b) => (b.assignedDate || '').localeCompare(a.assignedDate || ''));
+  return h('div', { class: 'card', style: { borderTop: '3px solid var(--purple)', marginTop: '12px' } },
+    h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '16px', marginBottom: '12px' } }, 'Ensemble Assignments'),
+    ...assignments.map(a =>
+      h('div', { class: 'assignment-block' },
+        h('div', { class: 'assignment-label', style: { color: 'var(--purple)' } },
+          a.songTitle + (a.dueDate ? ' — due ' + fmtDate(a.dueDate) : '') + (a.studentKey ? '' : ' (everyone)')
+        ),
+        h('div', { class: 'assignment-text' }, a.text)
+      )
+    )
+  );
+}
+
 function renderAssignments() {
   const s = getStudentData();
   const lessons = Object.values(s.lessons || {}).sort((a, b) => new Date(b.date) - new Date(a.date));
   const latest = lessons[0];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
   if (!latest) {
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     return h('div', { class: 'pad' },
       h('h1', { class: 'section-title' }, greeting + ', ' + s.profile.name),
-      h('p', { class: 'section-sub' }, 'No assignments yet — your teacher will post your first practice plan after your next lesson!')
+      h('p', { class: 'section-sub' }, 'No private lesson assignments yet — your teacher will post your first practice plan after your next lesson!'),
+      renderEnsembleAssignments()
     );
   }
   const plan = latest.practicePlan;
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return h('div', { class: 'pad' },
     h('div', { style: { marginBottom: '16px' } },
@@ -482,7 +411,8 @@ function renderAssignments() {
       h('div', { class: 'lesson-concepts' },
         ...latest.keyConcepts.map(c => h('span', { class: 'concept-tag' }, c))
       )
-    ) : ''
+    ) : '',
+    renderEnsembleAssignments()
   );
 }
 

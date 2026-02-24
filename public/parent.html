@@ -186,20 +186,25 @@ function h(tag, attrs, ...children) {
 
 function getAttendanceRate(student) {
   const att = student.attendance || {};
-  const entries = Object.values(att);
-  const attended = entries.filter(e => e.present).length;
-  const total = entries.filter(e => !e.cancelled).length;
+  let attended = 0, total = 0;
+  Object.values(att).forEach(programAtt => {
+    Object.values(programAtt || {}).forEach(entry => {
+      total++;
+      if (entry.present) attended++;
+    });
+  });
   return total ? Math.round(attended / total * 100) : 100;
 }
 
 function getBalance(student) {
-  const billing = student.billing || [];
-  let balance = 0;
-  (Array.isArray(billing) ? billing : Object.values(billing)).forEach(entry => {
-    if (entry.type === 'charge') balance += entry.amount;
-    else if (entry.type === 'payment') balance -= entry.amount;
+  let totalTuition = 0;
+  Object.entries(student.programs || {}).forEach(([pid, prog]) => {
+    const attended = Object.values((student.attendance || {})[pid] || {})
+      .filter(a => a.present).length;
+    totalTuition += attended * (prog.rate || 0);
   });
-  return balance;
+  const totalPaid = Object.values(student.payments || {}).reduce((sum, p) => sum + (p.amount || 0), 0);
+  return totalTuition - totalPaid;
 }
 
 function getWeekId(date) {
@@ -285,7 +290,7 @@ function render() {
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' } },
         h('div', {},
           h('div', { class: 'child-name' }, p.name || key),
-          h('div', { class: 'child-meta' }, (p.instrument || '') + ' \u00B7 ' + (p.program || '') + ' \u00B7 ' + (p.lessonDay || '') + ' ' + (p.lessonTime || ''))
+          h('div', { class: 'child-meta' }, (p.instrument || '') + ' \u00B7 ' + Object.values(student.programs || {}).map(pr => pr.name).join(', '))
         ),
         h('span', { class: 'badge ' + (balance > 0 ? 'badge-red' : 'badge-green') }, balance > 0 ? 'Balance Due' : 'Paid Up')
       ),

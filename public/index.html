@@ -132,80 +132,6 @@ const firebaseConfig = {
 const fbApp = firebase.initializeApp(firebaseConfig);
 const fbDb = firebase.database();
 const DB_ROOT = "professorOfFunk";
-
-/* ===== AUTH ===== */
-const AUTH_KEY = 'pof-portal-auth';
-let currentStudent = null;
-let currentTab = 0;
-
-async function checkAuth() {
-  const code = document.getElementById('auth-pw').value.trim().toLowerCase();
-  if (!code) { document.getElementById('auth-err').style.display = 'block'; return; }
-
-  try {
-    // Look up the student ID from the access code
-    const snap = await firebase.database().ref('professorOfFunk/meta/accessCodes/' + code).once('value');
-    const studentId = snap.val();
-    if (!studentId) {
-      document.getElementById('auth-err').style.display = 'block';
-      return;
-    }
-
-    // Sign in with Firebase Auth (access code + suffix for min password length)
-    await firebase.auth().signInWithEmailAndPassword(
-      studentId + '@professoroffunk.app',
-      code + '!PoF'
-    );
-
-    currentStudent = studentId;
-    sessionStorage.setItem(AUTH_KEY, code);
-    showApp();
-  } catch (e) {
-    console.error('Login failed:', e);
-    document.getElementById('auth-err').style.display = 'block';
-  }
-}
-
-async function showApp() {
-  document.getElementById('auth-gate').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  await loadStudentData();
-  loadPracticeData();
-  setupRealtimeSync();
-  render();
-}
-
-function logout() {
-  firebase.auth().signOut();
-  sessionStorage.removeItem(AUTH_KEY);
-  currentStudent = null;
-  document.getElementById('auth-gate').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('auth-pw').value = '';
-  document.getElementById('auth-err').style.display = 'none';
-}
-
-// Auto-login from session
-(async function() {
-  const saved = sessionStorage.getItem(AUTH_KEY);
-  if (!saved) return;
-
-  try {
-    const snap = await firebase.database().ref('professorOfFunk/meta/accessCodes/' + saved).once('value');
-    const studentId = snap.val();
-    if (!studentId) return;
-
-    await firebase.auth().signInWithEmailAndPassword(
-      studentId + '@professoroffunk.app',
-      saved + '!PoF'
-    );
-    currentStudent = studentId;
-    await showApp();
-  } catch (e) {
-    console.warn('Auto-login failed:', e);
-    sessionStorage.removeItem(AUTH_KEY);
-  }
-})();
 function dbRef(path) { return fbDb.ref(DB_ROOT + "/" + path); }
 let skipSync = false;
 
@@ -230,16 +156,85 @@ function onDataChange(key, callback) {
   return () => ref.off("value");
 }
 
+/* ===== AUTH ===== */
+const AUTH_KEY = 'pof-portal-student';
+let currentStudent = null;
+let currentTab = 0;
+
+async function checkAuth() {
+  const code = document.getElementById('auth-pw').value.trim().toLowerCase();
+  if (!code) return;
+  const errEl = document.getElementById('auth-err');
+  errEl.style.display = 'none';
+  try {
+    // 1. Look up access code → student key (public read)
+    const snap = await fbDb.ref(DB_ROOT + "/meta/accessCodes/" + code).once("value");
+    const studentKey = snap.val();
+    if (!studentKey) { errEl.style.display = 'block'; return; }
+    // 2. Sign in with Firebase Auth (email/password created by admin)
+    await firebase.auth().signInWithEmailAndPassword(
+      studentKey + '@professoroffunk.app',
+      code + '!PoF'
+    );
+    currentStudent = studentKey;
+    sessionStorage.setItem(AUTH_KEY, studentKey);
+    showApp();
+  } catch (e) {
+    console.error('Auth failed:', e);
+    errEl.textContent = e.code === 'auth/invalid-credential' ? 'Invalid access code or account not set up' : 'Login failed — please try again';
+    errEl.style.display = 'block';
+  }
+}
+
+async function showApp() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  await loadStudentData();
+  loadPracticeData();
+  setupRealtimeSync();
+  render();
+}
+
+function logout() {
+  firebase.auth().signOut();
+  sessionStorage.removeItem(AUTH_KEY);
+  currentStudent = null;
+  document.getElementById('auth-gate').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-pw').value = '';
+  document.getElementById('auth-err').style.display = 'none';
+}
+
+// Auto-login: check if Firebase Auth session is still valid
+firebase.auth().onAuthStateChanged(user => {
+  if (user && !currentStudent) {
+    const saved = sessionStorage.getItem(AUTH_KEY);
+    if (saved) {
+      currentStudent = saved;
+      showApp();
+    }
+  }
+});
+
 /* ===== STUDENT DATA (Firebase) ===== */
 let studentData = null;
+let ensembleData = null;
 
 async function loadStudentData() {
   if (!currentStudent) return;
   studentData = await fbLoad("students/" + currentStudent, null);
+  // Load ensemble data if student is in an ensemble program
+  ensembleData = null;
+  if (studentData && studentData.programs) {
+    const ensProg = Object.values(studentData.programs).find(pr => pr.type === 'ensemble' && pr.ensembleId);
+    if (ensProg) {
+      ensembleData = await fbLoad("ensembles/" + ensProg.ensembleId, null);
+    }
+  }
 }
 
 function getStudentData() {
-  return studentData || { profile: { name: 'Student', instrument: '', program: '' }, lessons: {}, practice: {}, milestones: {}, resources: [] };
+  return studentData || { profile: { name: currentStudent, instrument: '' }, lessons: {}, practice: {}, milestones: {}, resources: {} };
 }
 
 function setupRealtimeSync() {
@@ -350,21 +345,42 @@ function calcMonthlyDays() {
 
 /* ===== VIEWS ===== */
 
+function renderEnsembleAssignments() {
+  if (!ensembleData || !ensembleData.assignments) return '';
+  const allAssignments = Array.isArray(ensembleData.assignments) ? ensembleData.assignments : Object.values(ensembleData.assignments);
+  // Show group assignments (no studentKey) + assignments targeted at this student
+  const assignments = allAssignments.filter(a => !a.studentKey || a.studentKey === currentStudent);
+  if (assignments.length === 0) return '';
+  // Sort by assignedDate descending
+  assignments.sort((a, b) => (b.assignedDate || '').localeCompare(a.assignedDate || ''));
+  return h('div', { class: 'card', style: { borderTop: '3px solid var(--purple)', marginTop: '12px' } },
+    h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '16px', marginBottom: '12px' } }, 'Ensemble Assignments'),
+    ...assignments.map(a =>
+      h('div', { class: 'assignment-block' },
+        h('div', { class: 'assignment-label', style: { color: 'var(--purple)' } },
+          a.songTitle + (a.dueDate ? ' — due ' + fmtDate(a.dueDate) : '') + (a.studentKey ? '' : ' (everyone)')
+        ),
+        h('div', { class: 'assignment-text' }, a.text)
+      )
+    )
+  );
+}
+
 function renderAssignments() {
   const s = getStudentData();
   const lessons = Object.values(s.lessons || {}).sort((a, b) => new Date(b.date) - new Date(a.date));
   const latest = lessons[0];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
   if (!latest) {
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     return h('div', { class: 'pad' },
       h('h1', { class: 'section-title' }, greeting + ', ' + s.profile.name),
-      h('p', { class: 'section-sub' }, 'No assignments yet — your teacher will post your first practice plan after your next lesson!')
+      h('p', { class: 'section-sub' }, 'No private lesson assignments yet — your teacher will post your first practice plan after your next lesson!'),
+      renderEnsembleAssignments()
     );
   }
   const plan = latest.practicePlan;
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return h('div', { class: 'pad' },
     h('div', { style: { marginBottom: '16px' } },
@@ -395,7 +411,8 @@ function renderAssignments() {
       h('div', { class: 'lesson-concepts' },
         ...latest.keyConcepts.map(c => h('span', { class: 'concept-tag' }, c))
       )
-    ) : ''
+    ) : '',
+    renderEnsembleAssignments()
   );
 }
 

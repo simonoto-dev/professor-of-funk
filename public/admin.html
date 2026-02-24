@@ -315,54 +315,36 @@ async function loadLocalData() {
     fbLoad("lessonTranscripts", []),
     fbLoad("parents", {})
   ]);
-  // Normalize arrays/objects that Firebase may have converted or stripped
+  // Normalize new schema: programs, payments, attendance are objects
   Object.keys(students).forEach(k => {
-    students[k].billing = toArray(students[k].billing);
+    if (!students[k].programs || typeof students[k].programs !== 'object') students[k].programs = {};
+    if (!students[k].payments || typeof students[k].payments !== 'object') students[k].payments = {};
     if (!students[k].attendance || typeof students[k].attendance !== 'object') students[k].attendance = {};
   });
   Object.keys(ensembles).forEach(k => {
     ensembles[k].repertoire = toArray(ensembles[k].repertoire);
+    ensembles[k].assignments = toArray(ensembles[k].assignments);
     if (ensembles[k].info) ensembles[k].info.members = toArray(ensembles[k].info.members);
   });
   localData = { students, ensembles, lessonTranscripts: toArray(lessonTranscripts), parents };
-
-  // One-time migration: create auth accounts for existing students without authUid
-  for (const [key, student] of Object.entries(localData.students)) {
-    if (!student.profile.authUid && student.profile.accessCode) {
-      console.log('Migrating student auth:', key);
-      const authUid = await createStudentAuth(key, student.profile.accessCode);
-      if (authUid) {
-        student.profile.authUid = authUid;
-        await fbSave("students/" + key + "/profile/authUid", authUid);
-      }
-      // Ensure access code mapping exists
-      await fbSave("meta/accessCodes/" + student.profile.accessCode, key);
-    }
-  }
-
-  // One-time migration: create parent records for existing students with parentName
-  for (const [key, student] of Object.entries(localData.students)) {
-    if (student.profile.parentName && !student.profile.parentAuthUid) {
-      const parentCode = key + '-parent';
-      console.log('Migrating parent for:', key, '->', parentCode);
-      const parentAuthUid = await ensureParentRecord(key, student.profile.parentName, student.profile.parentEmail || '', parentCode);
-      if (parentAuthUid) {
-        student.profile.parentAuthUid = parentAuthUid;
-        student.profile.parentAccessCode = parentCode;
-        await fbSave("students/" + key + "/profile/parentAuthUid", parentAuthUid);
-        await fbSave("students/" + key + "/profile/parentAccessCode", parentCode);
-      }
-    }
-  }
 }
 
-function saveLocalData() {
+function saveLocalData(paths) {
   if (!localData) return;
+  // Safety: never overwrite students with empty data
+  if (!paths || paths.includes('students')) {
+    if (!localData.students || Object.keys(localData.students).length === 0) {
+      console.error('SAFETY: Refusing to save empty students data — aborting save');
+      return;
+    }
+  }
   skipSync = true;
-  fbSave("students", localData.students);
-  fbSave("ensembles", localData.ensembles);
-  fbSave("lessonTranscripts", localData.lessonTranscripts || []);
-  fbSave("parents", localData.parents || {});
+  // If specific paths given, only write those; otherwise write all
+  const all = !paths;
+  if (all || paths.includes('students')) fbSave("students", localData.students);
+  if (all || paths.includes('ensembles')) fbSave("ensembles", localData.ensembles);
+  if (all || paths.includes('lessonTranscripts')) fbSave("lessonTranscripts", localData.lessonTranscripts || []);
+  if (all || paths.includes('parents')) fbSave("parents", localData.parents || {});
   setTimeout(() => { skipSync = false; }, 500);
 }
 
@@ -370,7 +352,8 @@ function setupRealtimeSync() {
   onDataChange("students", val => {
     if (!localData) return;
     Object.keys(val).forEach(k => {
-      val[k].billing = toArray(val[k].billing);
+      if (!val[k].programs || typeof val[k].programs !== 'object') val[k].programs = {};
+      if (!val[k].payments || typeof val[k].payments !== 'object') val[k].payments = {};
       if (!val[k].attendance || typeof val[k].attendance !== 'object') val[k].attendance = {};
     });
     localData.students = val;
@@ -380,6 +363,7 @@ function setupRealtimeSync() {
     if (!localData) return;
     Object.keys(val).forEach(k => {
       val[k].repertoire = toArray(val[k].repertoire);
+      val[k].assignments = toArray(val[k].assignments);
       if (val[k].info) val[k].info.members = toArray(val[k].info.members);
     });
     localData.ensembles = val;
@@ -401,6 +385,8 @@ let editingStudent = null;   // key of student being edited, or null
 let editingEnsemble = null;  // key of ensemble being edited, or null
 let editingSong = null;      // { ensKey, songId } or null
 let addingSongTo = null;     // ensemble key, or null
+let assigningSong = null;    // { ensKey, songId, songTitle } or null
+let attendanceProgram = null; // selected program filter for attendance tab
 
 /* ===== HELPERS ===== */
 function h(tag, attrs, ...children) {
@@ -430,42 +416,90 @@ function fmtCurrency(n) { return '$' + Math.abs(n).toLocaleString('en-US', { min
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
-function getBalance(studentKey) {
-  const billing = localData.students[studentKey].billing || [];
-  let balance = 0;
-  billing.forEach(entry => {
-    if (entry.type === 'charge') balance += entry.amount;
-    else if (entry.type === 'payment') balance -= entry.amount;
+/* ===== BILLING COMPUTATION (new schema) ===== */
+function computeStudentBilling(studentKey) {
+  const s = localData.students[studentKey];
+  if (!s) return { totalTuition: 0, totalPaid: 0, tuitionOwed: 0, invoiceStatus: 'Paid', totalClasses: 0, perProgram: {} };
+  let totalTuition = 0, totalClasses = 0;
+  const perProgram = {};
+  Object.entries(s.programs || {}).forEach(([pid, prog]) => {
+    const attended = Object.values((s.attendance || {})[pid] || {})
+      .filter(a => a.present).length;
+    totalClasses += attended;
+    const tuition = attended * prog.rate;
+    totalTuition += tuition;
+    perProgram[pid] = { attended, tuition, rate: prog.rate, name: prog.name };
   });
-  return balance;
+  const totalPaid = Object.values(s.payments || {}).reduce((sum, p) => sum + (p.amount || 0), 0);
+  const tuitionOwed = totalTuition - totalPaid;
+  const invoiceStatus = tuitionOwed > 0 ? 'Unpaid' : tuitionOwed < 0 ? 'Overpaid' : 'Paid';
+  return { totalTuition, totalPaid, tuitionOwed, invoiceStatus, totalClasses, perProgram };
+}
+
+function getBalance(studentKey) {
+  return computeStudentBilling(studentKey).tuitionOwed;
 }
 
 function getAttendanceRate(studentKey) {
   const s = localData.students[studentKey];
   if (!s) return 100;
-  const att = s.attendance || {};
-  const entries = Object.values(att);
-  const attended = entries.filter(e => e.present).length;
-  const total = entries.filter(e => !e.cancelled).length;
+  let attended = 0, total = 0;
+  Object.entries(s.attendance || {}).forEach(([pid, dates]) => {
+    Object.values(dates).forEach(a => {
+      total++;
+      if (a.present) attended++;
+    });
+  });
   return total ? Math.round(attended / total * 100) : 100;
 }
 
 function getStatusColor(status) {
   switch (status) {
-    case 'current': return 'var(--green)';
-    case 'overdue': return 'var(--red)';
-    case 'overdue-lesson': return 'var(--yellow)';
+    case 'Paid': return 'var(--green)';
+    case 'Unpaid': return 'var(--red)';
+    case 'Overpaid': return 'var(--blue)';
     default: return 'var(--muted)';
   }
 }
 
 function getStatusBadge(status) {
   switch (status) {
-    case 'current': return 'badge-green';
-    case 'overdue': return 'badge-red';
-    case 'overdue-lesson': return 'badge-yellow';
-    default: return 'badge-blue';
+    case 'Paid': return 'badge-green';
+    case 'Unpaid': return 'badge-red';
+    case 'Overpaid': return 'badge-blue';
+    default: return 'badge-accent';
   }
+}
+
+function getStudentProgramNames(studentKey) {
+  const s = localData.students[studentKey];
+  if (!s || !s.programs) return '';
+  return Object.values(s.programs).map(p => p.name).join(', ');
+}
+
+/* ===== ENSEMBLE MEMBERSHIP SYNC ===== */
+function syncEnsembleMembership(studentName, oldEnsembleId, newEnsembleId) {
+  // Remove student from old ensemble's member list
+  if (oldEnsembleId && localData.ensembles[oldEnsembleId]) {
+    const members = localData.ensembles[oldEnsembleId].info.members || [];
+    const idx = members.indexOf(studentName);
+    if (idx !== -1) members.splice(idx, 1);
+    localData.ensembles[oldEnsembleId].info.members = members;
+  }
+  // Add student to new ensemble's member list
+  if (newEnsembleId && localData.ensembles[newEnsembleId]) {
+    const members = localData.ensembles[newEnsembleId].info.members || [];
+    if (!members.includes(studentName)) members.push(studentName);
+    localData.ensembles[newEnsembleId].info.members = members;
+  }
+}
+
+function getEnsembleForStudent(studentKey) {
+  const s = localData.students[studentKey];
+  if (!s || !s.programs) return null;
+  const ensProg = Object.values(s.programs).find(pr => pr.type === 'ensemble' && pr.ensembleId);
+  if (!ensProg) return null;
+  return localData.ensembles[ensProg.ensembleId] || null;
 }
 
 /* ===== VIEWS ===== */
@@ -479,7 +513,7 @@ function renderAddStudentForm() {
     h('div', { class: 'form-row' },
       h('div', { class: 'form-group' },
         h('label', {}, 'Student Name'),
-        h('input', { class: 'input', id: 'new-student-name', placeholder: 'e.g. Alex' })
+        h('input', { class: 'input', id: 'new-student-name', placeholder: 'e.g. Alex Johnson' })
       ),
       h('div', { class: 'form-group' },
         h('label', {}, 'Instrument'),
@@ -493,30 +527,62 @@ function renderAddStudentForm() {
         )
       )
     ),
-    h('div', { class: 'form-group' },
-      h('label', {}, 'Program'),
-      h('select', { class: 'input', id: 'new-student-program' },
-        h('option', { value: 'Private Lessons' }, 'Private Lessons'),
-        h('option', { value: 'Ensemble Only' }, 'Ensemble Only'),
-        h('option', { value: 'Private + Ensemble' }, 'Private + Ensemble')
-      )
-    ),
     h('div', { class: 'form-row' },
       h('div', { class: 'form-group' },
-        h('label', {}, 'Private Lesson Rate ($/lesson)'),
-        h('input', { class: 'input', id: 'new-student-private-rate', type: 'number', placeholder: '75', value: '75' })
+        h('label', {}, 'Age / Grade'),
+        h('input', { class: 'input', id: 'new-student-agegrade', placeholder: 'e.g. 13 / 8th' })
       ),
       h('div', { class: 'form-group' },
-        h('label', {}, 'Group Lesson Rate ($/lesson)'),
-        h('input', { class: 'input', id: 'new-student-group-rate', type: 'number', placeholder: '50', value: '50' })
+        h('label', {}, 'Skill Level'),
+        h('select', { class: 'input', id: 'new-student-skill' },
+          h('option', { value: '' }, '—'),
+          h('option', { value: 'beginner' }, 'Beginner'),
+          h('option', { value: 'intermediate' }, 'Intermediate'),
+          h('option', { value: 'advanced' }, 'Advanced')
+        )
       )
     ),
     h('div', { class: 'form-row' },
       h('div', { class: 'form-group' },
-        h('label', {}, 'Lesson Day'),
-        h('select', { class: 'input', id: 'new-student-day' },
-          ...['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(d =>
-            h('option', { value: d, ...(d === 'Wednesday' ? { selected: 'selected' } : {}) }, d)
+        h('label', {}, 'Allergies'),
+        h('input', { class: 'input', id: 'new-student-allergies', placeholder: 'e.g. PEANUT ALLERGY' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Phone'),
+        h('input', { class: 'input', id: 'new-student-phone', placeholder: '' })
+      )
+    ),
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Emergency Contact'),
+      h('input', { class: 'input', id: 'new-student-emergency', placeholder: '' })
+    ),
+    // Programs section
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Programs'),
+      h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' } },
+        ...Object.entries(localData.ensembles).map(([ek, ev]) =>
+          h('button', { class: 'btn-outline new-prog-btn', 'data-pid': ek, 'data-type': 'ensemble', onClick: (e) => {
+            e.target.classList.toggle('active');
+          }}, ev.info.name + ' ($62.50)')
+        ),
+        h('button', { class: 'btn-outline new-prog-btn', 'data-pid': 'private', 'data-type': 'private', onClick: (e) => {
+          e.target.classList.toggle('active');
+          const priv = document.getElementById('new-private-section');
+          if (priv) priv.style.display = e.target.classList.contains('active') ? '' : 'none';
+        }}, 'Private ($125)')
+      )
+    ),
+    h('div', { id: 'new-private-section', style: { display: 'none' } },
+      h('div', { class: 'form-row' },
+        h('div', { class: 'form-group' },
+          h('label', {}, 'Private Rate ($/lesson)'),
+          h('input', { class: 'input', id: 'new-student-private-rate', type: 'number', value: '125' })
+        ),
+        h('div', { class: 'form-group' },
+          h('label', {}, 'Lesson Day'),
+          h('select', { class: 'input', id: 'new-student-day' },
+            h('option', { value: '' }, '—'),
+            ...['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(d => h('option', { value: d }, d))
           )
         )
       ),
@@ -535,51 +601,72 @@ function renderAddStudentForm() {
         h('input', { class: 'input', id: 'new-student-email', type: 'email', placeholder: 'parent@email.com' })
       )
     ),
-    h('div', { class: 'form-group' },
-      h('label', {}, 'Access Code (for student portal login)'),
-      h('input', { class: 'input', id: 'new-student-code', placeholder: 'e.g. alex1 — keep it simple' })
-    ),
-    h('div', { class: 'form-group' },
-      h('label', {}, 'Parent Access Code (for parent dashboard)'),
-      h('input', { class: 'input', id: 'new-student-parent-code', placeholder: 'e.g. wong-parent — auto-generated if blank' })
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Access Code (student login)'),
+        h('input', { class: 'input', id: 'new-student-code', placeholder: 'e.g. alex1' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Parent Access Code'),
+        h('input', { class: 'input', id: 'new-student-parent-code', placeholder: 'auto-generated if blank' })
+      )
     ),
     h('button', { class: 'btn', style: { marginTop: '4px' }, onClick: async () => {
       const name = document.getElementById('new-student-name').value.trim();
       const instrument = document.getElementById('new-student-instrument').value;
-      const program = document.getElementById('new-student-program').value;
-      const privateRate = parseInt(document.getElementById('new-student-private-rate').value) || 75;
-      const groupRate = parseInt(document.getElementById('new-student-group-rate').value) || 50;
-      const lessonDay = document.getElementById('new-student-day').value;
-      const lessonTime = document.getElementById('new-student-time').value.trim();
+      const ageGrade = document.getElementById('new-student-agegrade').value.trim();
+      const skillLevel = document.getElementById('new-student-skill').value;
+      const allergies = document.getElementById('new-student-allergies').value.trim();
+      const phone = document.getElementById('new-student-phone').value.trim();
+      const emergencyContact = document.getElementById('new-student-emergency').value.trim();
       const parentName = document.getElementById('new-student-parent').value.trim();
       const parentEmail = document.getElementById('new-student-email').value.trim();
       const accessCode = document.getElementById('new-student-code').value.trim().toLowerCase();
       const parentCodeRaw = document.getElementById('new-student-parent-code').value.trim().toLowerCase();
       if (!name) { alert('Please enter a student name.'); return; }
-      if (!accessCode) { alert('Please enter an access code for the student portal.'); return; }
+      if (!accessCode) { alert('Please enter an access code.'); return; }
       const existingCodes = Object.values(localData.students).map(s => s.profile.accessCode);
       if (existingCodes.includes(accessCode)) { alert('That access code is already in use.'); return; }
       const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
       const parentCode = parentCodeRaw || (key + '-parent');
       if (localData.students[key]) { alert('A student with that key already exists.'); return; }
 
-      // Create Firebase Auth account for student
+      // Build programs from selected buttons
+      const programs = {};
+      document.querySelectorAll('.new-prog-btn.active').forEach(btn => {
+        const pid = btn.getAttribute('data-pid');
+        const type = btn.getAttribute('data-type');
+        if (type === 'private') {
+          const rate = parseFloat(document.getElementById('new-student-private-rate').value) || 125;
+          const day = document.getElementById('new-student-day').value || null;
+          const time = document.getElementById('new-student-time').value.trim() || null;
+          programs.private = { type: 'private', name: 'Private Lessons', ensembleId: null, rate, lessonDay: day, lessonTime: time };
+        } else {
+          const ens = localData.ensembles[pid];
+          programs[pid] = { type: 'ensemble', name: ens ? ens.info.name : pid, ensembleId: pid, rate: 62.50, lessonDay: null, lessonTime: null };
+          // Add to ensemble member list
+          if (ens) {
+            if (!ens.info.members.includes(name)) { ens.info.members.push(name); fbSave("ensembles/" + pid + "/info/members", ens.info.members); }
+          }
+        }
+      });
+
       const authUid = await createStudentAuth(key, accessCode);
 
       localData.students[key] = {
-        profile: { name, instrument, program, startDate: new Date().toISOString().slice(0, 10), accessCode, authUid: authUid || null, parentName, parentEmail, lessonDay, lessonTime, privateRate, groupRate },
-        lastLesson: null,
-        nextLesson: null,
-        paymentStatus: 'current',
+        profile: { name, instrument, startDate: new Date().toISOString().slice(0, 10), accessCode, authUid: authUid || null, parentName, parentEmail, parentAuthUid: null, parentAccessCode: null, ageGrade, skillLevel, allergies, phone, emergencyContact, active: true },
+        programs,
         attendance: {},
-        billing: []
+        payments: {},
+        lessons: {},
+        practice: {},
+        milestones: {},
+        resources: {}
       };
 
-      // Save student data + access code mapping
       await fbSave("students/" + key, localData.students[key]);
       await fbSave("meta/accessCodes/" + accessCode, key);
 
-      // Create parent record if parent name provided
       if (parentName) {
         const parentAuthUid = await ensureParentRecord(key, parentName, parentEmail, parentCode);
         localData.students[key].profile.parentAuthUid = parentAuthUid || null;
@@ -598,8 +685,10 @@ function renderEditStudentForm(key) {
   const s = localData.students[key];
   const p = s.profile;
   const instruments = ['Guitar','Bass','Drums','Keys','Vocals','Other'];
-  const programs = ['Private Lessons','Ensemble Only','Private + Ensemble'];
   const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const currentPrograms = s.programs || {};
+  const hasPrivate = !!currentPrograms.private;
+
   return h('div', { class: 'card card-accent', style: { marginBottom: '16px' } },
     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
       h('div', { style: { fontWeight: '600', fontSize: '15px' } }, 'Edit Student — ' + p.name),
@@ -617,32 +706,77 @@ function renderEditStudentForm(key) {
         )
       )
     ),
-    h('div', { class: 'form-group' },
-      h('label', {}, 'Program'),
-      h('select', { class: 'input', id: 'edit-student-program' },
-        ...programs.map(pr => h('option', { value: pr, ...(pr === p.program ? { selected: 'selected' } : {}) }, pr))
-      )
-    ),
     h('div', { class: 'form-row' },
       h('div', { class: 'form-group' },
-        h('label', {}, 'Private Lesson Rate ($/lesson)'),
-        h('input', { class: 'input', id: 'edit-student-private-rate', type: 'number', value: '' + (p.privateRate || p.rate || 75) })
+        h('label', {}, 'Age / Grade'),
+        h('input', { class: 'input', id: 'edit-student-agegrade', value: p.ageGrade || '' })
       ),
       h('div', { class: 'form-group' },
-        h('label', {}, 'Group Lesson Rate ($/lesson)'),
-        h('input', { class: 'input', id: 'edit-student-group-rate', type: 'number', value: '' + (p.groupRate || 50) })
+        h('label', {}, 'Skill Level'),
+        h('select', { class: 'input', id: 'edit-student-skill' },
+          h('option', { value: '', ...(!p.skillLevel ? { selected: 'selected' } : {}) }, '—'),
+          ...['beginner','intermediate','advanced'].map(lv => h('option', { value: lv, ...(lv === p.skillLevel ? { selected: 'selected' } : {}) }, lv.charAt(0).toUpperCase() + lv.slice(1)))
+        )
       )
     ),
     h('div', { class: 'form-row' },
       h('div', { class: 'form-group' },
-        h('label', {}, 'Lesson Day'),
-        h('select', { class: 'input', id: 'edit-student-day' },
-          ...days.map(d => h('option', { value: d, ...(d === p.lessonDay ? { selected: 'selected' } : {}) }, d))
+        h('label', {}, 'Allergies'),
+        h('input', { class: 'input', id: 'edit-student-allergies', value: p.allergies || '' })
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Phone'),
+        h('input', { class: 'input', id: 'edit-student-phone', value: p.phone || '' })
+      )
+    ),
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Emergency Contact'),
+      h('input', { class: 'input', id: 'edit-student-emergency', value: p.emergencyContact || '' })
+    ),
+    h('div', { class: 'form-row' },
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Active'),
+        h('select', { class: 'input', id: 'edit-student-active' },
+          h('option', { value: 'true', ...(p.active !== false ? { selected: 'selected' } : {}) }, 'Active'),
+          h('option', { value: 'false', ...(p.active === false ? { selected: 'selected' } : {}) }, 'Inactive')
+        )
+      )
+    ),
+    // Programs section
+    h('div', { class: 'form-group' },
+      h('label', {}, 'Programs'),
+      h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' } },
+        ...Object.entries(localData.ensembles).map(([ek, ev]) => {
+          const enrolled = !!currentPrograms[ek];
+          const rate = enrolled ? currentPrograms[ek].rate : 62.50;
+          return h('button', { class: 'btn-outline edit-prog-btn' + (enrolled ? ' active' : ''), 'data-pid': ek, 'data-type': 'ensemble', onClick: (e) => {
+            e.target.classList.toggle('active');
+          }}, ev.info.name + ' ($' + rate + ')');
+        }),
+        h('button', { class: 'btn-outline edit-prog-btn' + (hasPrivate ? ' active' : ''), 'data-pid': 'private', 'data-type': 'private', onClick: (e) => {
+          e.target.classList.toggle('active');
+          const priv = document.getElementById('edit-private-section');
+          if (priv) priv.style.display = e.target.classList.contains('active') ? '' : 'none';
+        }}, 'Private ($' + (hasPrivate ? currentPrograms.private.rate : 125) + ')')
+      )
+    ),
+    h('div', { id: 'edit-private-section', style: { display: hasPrivate ? '' : 'none' } },
+      h('div', { class: 'form-row' },
+        h('div', { class: 'form-group' },
+          h('label', {}, 'Private Rate ($/lesson)'),
+          h('input', { class: 'input', id: 'edit-student-private-rate', type: 'number', value: '' + (hasPrivate ? currentPrograms.private.rate : 125) })
+        ),
+        h('div', { class: 'form-group' },
+          h('label', {}, 'Lesson Day'),
+          h('select', { class: 'input', id: 'edit-student-day' },
+            h('option', { value: '' }, '—'),
+            ...days.map(d => h('option', { value: d, ...(d === (hasPrivate ? currentPrograms.private.lessonDay : '') ? { selected: 'selected' } : {}) }, d))
+          )
         )
       ),
       h('div', { class: 'form-group' },
         h('label', {}, 'Lesson Time'),
-        h('input', { class: 'input', id: 'edit-student-time', value: p.lessonTime || '' })
+        h('input', { class: 'input', id: 'edit-student-time', value: (hasPrivate ? currentPrograms.private.lessonTime : '') || '' })
       )
     ),
     h('div', { class: 'form-row' },
@@ -657,62 +791,105 @@ function renderEditStudentForm(key) {
     ),
     h('div', { class: 'form-row' },
       h('div', { class: 'form-group' },
-        h('label', {}, 'Access Code'),
+        h('label', {}, 'Access Code (student login)'),
         h('input', { class: 'input', id: 'edit-student-code', value: p.accessCode || '' })
       ),
       h('div', { class: 'form-group' },
-        h('label', {}, 'Payment Status'),
-        h('select', { class: 'input', id: 'edit-student-status' },
-          ...['current','overdue','overdue-lesson'].map(st => h('option', { value: st, ...(st === s.paymentStatus ? { selected: 'selected' } : {}) }, st === 'current' ? 'Current' : st === 'overdue' ? 'Overdue' : 'Overdue (Lesson)'))
-        )
+        h('label', {}, 'Parent Access Code'),
+        h('input', { class: 'input', id: 'edit-student-parent-code', value: p.parentAccessCode || '' })
       )
-    ),
-    h('div', { class: 'form-group' },
-      h('label', {}, 'Parent Access Code'),
-      h('input', { class: 'input', id: 'edit-student-parent-code', value: p.parentAccessCode || '' })
     ),
     h('div', { style: { display: 'flex', gap: '8px', marginTop: '4px' } },
       h('button', { class: 'btn', onClick: async () => {
         const name = document.getElementById('edit-student-name').value.trim();
         const instrument = document.getElementById('edit-student-instrument').value;
-        const program = document.getElementById('edit-student-program').value;
-        const privateRate = parseInt(document.getElementById('edit-student-private-rate').value) || 75;
-        const groupRate = parseInt(document.getElementById('edit-student-group-rate').value) || 50;
-        const lessonDay = document.getElementById('edit-student-day').value;
-        const lessonTime = document.getElementById('edit-student-time').value.trim();
+        const ageGrade = document.getElementById('edit-student-agegrade').value.trim();
+        const skillLevel = document.getElementById('edit-student-skill').value;
+        const allergies = document.getElementById('edit-student-allergies').value.trim();
+        const phone = document.getElementById('edit-student-phone').value.trim();
+        const emergencyContact = document.getElementById('edit-student-emergency').value.trim();
+        const active = document.getElementById('edit-student-active').value === 'true';
         const parentName = document.getElementById('edit-student-parent').value.trim();
         const parentEmail = document.getElementById('edit-student-email').value.trim();
         const accessCode = document.getElementById('edit-student-code').value.trim().toLowerCase();
         const parentCode = document.getElementById('edit-student-parent-code').value.trim().toLowerCase();
-        const paymentStatus = document.getElementById('edit-student-status').value;
         if (!name) { alert('Student name is required.'); return; }
         if (!accessCode) { alert('Access code is required.'); return; }
         // Check duplicate access code (excluding self)
         const existingCodes = Object.entries(localData.students).filter(([k]) => k !== key).map(([,v]) => v.profile.accessCode);
         if (existingCodes.includes(accessCode)) { alert('That access code is already in use by another student.'); return; }
         // Update access code mapping if changed
-        const oldCode = localData.students[key].profile.accessCode;
+        const oldCode = s.profile.accessCode;
         if (oldCode !== accessCode) {
           await dbRef("meta/accessCodes/" + oldCode).remove();
           await fbSave("meta/accessCodes/" + accessCode, key);
         }
+        // Build new programs from toggle buttons
+        const newPrograms = {};
+        const oldPrograms = s.programs || {};
+        document.querySelectorAll('.edit-prog-btn.active').forEach(btn => {
+          const pid = btn.getAttribute('data-pid');
+          const type = btn.getAttribute('data-type');
+          if (type === 'private') {
+            const rate = parseFloat(document.getElementById('edit-student-private-rate').value) || 125;
+            const day = document.getElementById('edit-student-day').value || null;
+            const time = document.getElementById('edit-student-time').value.trim() || null;
+            newPrograms.private = { type: 'private', name: 'Private Lessons', ensembleId: null, rate, lessonDay: day, lessonTime: time };
+          } else {
+            const ens = localData.ensembles[pid];
+            const existingRate = oldPrograms[pid] ? oldPrograms[pid].rate : 62.50;
+            newPrograms[pid] = { type: 'ensemble', name: ens ? ens.info.name : pid, ensembleId: pid, rate: existingRate, lessonDay: null, lessonTime: null };
+          }
+        });
+        // Sync ensemble memberships (remove from old, add to new)
+        const oldName = p.name;
+        Object.keys(oldPrograms).forEach(pid => {
+          if (pid !== 'private' && !newPrograms[pid]) {
+            syncEnsembleMembership(oldName, pid, null);
+          }
+        });
+        Object.keys(newPrograms).forEach(pid => {
+          if (pid !== 'private') {
+            if (!oldPrograms[pid] || oldName !== name) {
+              if (oldPrograms[pid] && oldName !== name) syncEnsembleMembership(oldName, pid, null);
+              syncEnsembleMembership(name, null, pid);
+            }
+          }
+        });
+        // Save ensemble membership changes
+        Object.keys({ ...oldPrograms, ...newPrograms }).forEach(pid => {
+          if (pid !== 'private' && localData.ensembles[pid]) {
+            fbSave("ensembles/" + pid + "/info/members", localData.ensembles[pid].info.members);
+          }
+        });
         // Create/update parent record if parent name and code are provided
         let parentAuthUid = s.profile.parentAuthUid || null;
         if (parentName && parentCode) {
           parentAuthUid = await ensureParentRecord(key, parentName, parentEmail, parentCode) || null;
         }
-        s.profile = { ...s.profile, name, instrument, program, privateRate, groupRate, lessonDay, lessonTime, parentName, parentEmail, accessCode, parentAccessCode: parentCode || s.profile.parentAccessCode || null, parentAuthUid };
-        s.paymentStatus = paymentStatus;
-        saveLocalData();
+        // Update profile (only profile fields, no old schema fields)
+        s.profile = { ...s.profile, name, instrument, ageGrade, skillLevel, allergies, phone, emergencyContact, active, parentName, parentEmail, accessCode, parentAccessCode: parentCode || s.profile.parentAccessCode || null, parentAuthUid };
+        s.programs = newPrograms;
+        // Write to Firebase via targeted saves
+        await fbSave("students/" + key + "/profile", s.profile);
+        await fbSave("students/" + key + "/programs", newPrograms);
         editingStudent = null;
         render();
       }}, 'Save Changes'),
       h('button', { class: 'btn-outline', style: { color: 'var(--red)', borderColor: 'var(--red)' }, onClick: async () => {
         if (!confirm('Delete ' + p.name + '? This removes all their data. This cannot be undone.')) return;
-        const code = localData.students[key].profile.accessCode;
+        // Remove from all ensemble member lists
+        Object.keys(s.programs || {}).forEach(pid => {
+          if (pid !== 'private') {
+            syncEnsembleMembership(p.name, pid, null);
+            if (localData.ensembles[pid]) fbSave("ensembles/" + pid + "/info/members", localData.ensembles[pid].info.members);
+          }
+        });
+        const code = s.profile.accessCode;
         if (code) await dbRef("meta/accessCodes/" + code).remove();
+        if (s.profile.parentAccessCode) await dbRef("meta/parentAccessCodes/" + s.profile.parentAccessCode).remove();
+        await dbRef("students/" + key).remove();
         delete localData.students[key];
-        saveLocalData();
         editingStudent = null;
         render();
       }}, 'Delete Student')
@@ -722,25 +899,24 @@ function renderEditStudentForm(key) {
 
 function renderStudents() {
   const students = localData.students;
-  const keys = Object.keys(students);
+  const keys = Object.keys(students).filter(k => students[k].profile.active !== false);
+  const inactiveKeys = Object.keys(students).filter(k => students[k].profile.active === false);
   const totalStudents = keys.length;
+  const now = new Date();
   const totalRevenue = keys.reduce((sum, k) => {
-    const payments = (students[k].billing || []).filter(b => b.type === 'payment');
-    const thisMonth = payments.filter(b => {
-      const d = new Date(b.date + 'T12:00:00');
-      const now = new Date();
+    return sum + Object.values(students[k].payments || {}).filter(p => {
+      const d = new Date(p.date + 'T12:00:00');
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-    return sum + thisMonth.reduce((s, p) => s + p.amount, 0);
+    }).reduce((s, p) => s + (p.amount || 0), 0);
   }, 0);
-  const outstanding = keys.reduce((sum, k) => sum + Math.max(0, getBalance(k)), 0);
+  const outstanding = keys.reduce((sum, k) => sum + Math.max(0, computeStudentBilling(k).tuitionOwed), 0);
 
   return h('div', { class: 'pad' },
     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
       h('h2', { class: 'section-title' }, 'Students'),
       !showAddStudent ? h('button', { class: 'btn btn-sm', onClick: () => { showAddStudent = true; render(); } }, '+ Add Student') : ''
     ),
-    h('p', { class: 'section-sub' }, totalStudents + ' active students'),
+    h('p', { class: 'section-sub' }, totalStudents + ' active students' + (inactiveKeys.length ? ', ' + inactiveKeys.length + ' inactive' : '')),
 
     showAddStudent ? renderAddStudentForm() : '',
 
@@ -748,92 +924,167 @@ function renderStudents() {
       h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Students'), h('div', { class: 'stat-value' }, '' + totalStudents)),
       h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'This Month'), h('div', { class: 'stat-value' }, fmtCurrency(totalRevenue))),
       h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Outstanding'), h('div', { class: 'stat-value', style: { color: outstanding > 0 ? 'var(--red)' : 'var(--green)' } }, fmtCurrency(outstanding))),
-      h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Avg Rate'), h('div', { class: 'stat-value' }, '$' + (totalStudents ? Math.round(keys.reduce((s, k) => s + (students[k].profile.privateRate || students[k].profile.rate || 75), 0) / totalStudents) : 0)), h('div', { class: 'stat-sub' }, '/private lesson'))
+      h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Total Tuition'), h('div', { class: 'stat-value' }, fmtCurrency(keys.reduce((s, k) => s + computeStudentBilling(k).totalTuition, 0))))
     ),
 
     ...keys.map(key => {
       if (editingStudent === key) return renderEditStudentForm(key);
       const s = students[key];
-      const bal = getBalance(key);
+      const billing = computeStudentBilling(key);
       const attRate = getAttendanceRate(key);
+      const programNames = getStudentProgramNames(key);
       return h('div', { class: 'student-card', onClick: () => { editingStudent = key; render(); } },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } },
           h('div', {},
             h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
-              h('div', { class: 'status-dot', style: { background: getStatusColor(s.paymentStatus) } }),
+              h('div', { class: 'status-dot', style: { background: getStatusColor(billing.invoiceStatus) } }),
               h('div', { class: 'student-name' }, s.profile.name)
             ),
             h('div', { class: 'student-meta' },
-              h('span', { class: 'student-detail' }, '🎸 ' + s.profile.instrument),
-              h('span', { class: 'student-detail' }, '📅 ' + s.profile.lessonDay + ' ' + s.profile.lessonTime),
-              h('span', { class: 'student-detail' }, '👤 ' + s.profile.parentName)
+              h('span', { class: 'student-detail' }, s.profile.instrument),
+              programNames ? h('span', { class: 'student-detail' }, programNames) : '',
+              s.profile.parentName ? h('span', { class: 'student-detail' }, s.profile.parentName) : ''
             )
           ),
-          h('span', { class: 'badge ' + getStatusBadge(s.paymentStatus) }, s.paymentStatus === 'current' ? 'Current' : s.paymentStatus === 'overdue' ? 'Balance Due' : 'Overdue')
+          h('span', { class: 'badge ' + getStatusBadge(billing.invoiceStatus) }, billing.invoiceStatus)
         ),
         h('div', { style: { display: 'flex', gap: '16px', marginTop: '10px', fontSize: '11px', color: 'var(--muted)' } },
-          h('span', {}, 'Last: ' + fmtDate(s.lastLesson)),
-          h('span', {}, 'Next: ' + fmtDate(s.nextLesson)),
+          h('span', {}, billing.totalClasses + ' classes'),
           h('span', {}, 'Attendance: ' + attRate + '%'),
-          bal > 0 ? h('span', { style: { color: 'var(--red)', fontWeight: '600' } }, 'Owes: ' + fmtCurrency(bal)) : h('span', { style: { color: 'var(--green)' } }, 'Paid up')
+          billing.tuitionOwed > 0 ? h('span', { style: { color: 'var(--red)', fontWeight: '600' } }, 'Owes: ' + fmtCurrency(billing.tuitionOwed))
+            : billing.tuitionOwed < 0 ? h('span', { style: { color: 'var(--blue)', fontWeight: '600' } }, 'Credit: ' + fmtCurrency(billing.tuitionOwed))
+            : h('span', { style: { color: 'var(--green)' } }, 'Paid up')
         )
       );
-    })
+    }),
+
+    // Show inactive students in a collapsed section
+    inactiveKeys.length > 0 ? h('div', { style: { marginTop: '20px' } },
+      h('div', { class: 'label', style: { marginBottom: '8px' } }, 'Inactive Students'),
+      ...inactiveKeys.map(key => {
+        if (editingStudent === key) return renderEditStudentForm(key);
+        const s = students[key];
+        return h('div', { class: 'student-card', style: { opacity: '0.6' }, onClick: () => { editingStudent = key; render(); } },
+          h('div', { class: 'student-name' }, s.profile.name),
+          h('div', { class: 'student-meta' }, h('span', {}, s.profile.instrument + ' (inactive)'))
+        );
+      })
+    ) : ''
   );
 }
 
 function renderAttendance() {
   const students = localData.students;
-  const keys = Object.keys(students);
-  // Get last 4 weeks of dates (Wednesdays)
-  const dates = [];
-  const now = new Date();
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - (i * 7));
-    dates.push(d.toISOString().slice(0, 10));
-  }
-  dates.reverse();
+  const allKeys = Object.keys(students).filter(k => students[k].profile.active !== false);
+
+  // Build list of all programs across all students
+  const programSet = {};
+  allKeys.forEach(k => {
+    Object.entries(students[k].programs || {}).forEach(([pid, prog]) => {
+      if (!programSet[pid]) programSet[pid] = prog.name;
+    });
+  });
+  const programIds = Object.keys(programSet);
+
+  // Auto-select first program if none selected
+  if (!attendanceProgram && programIds.length > 0) attendanceProgram = programIds[0];
+
+  const isAllView = attendanceProgram === '__all__';
+
+  // Filter students enrolled in selected program
+  const filteredKeys = isAllView ? allKeys : allKeys.filter(k => (students[k].programs || {})[attendanceProgram]);
+
+  // Get dates for this program's attendance (last 8 unique dates across all students)
+  const dateSet = new Set();
+  filteredKeys.forEach(k => {
+    if (isAllView) {
+      Object.values(students[k].attendance || {}).forEach(progAtt => {
+        Object.keys(progAtt).forEach(d => dateSet.add(d));
+      });
+    } else {
+      Object.keys((students[k].attendance || {})[attendanceProgram] || {}).forEach(d => dateSet.add(d));
+    }
+  });
+  const allDates = Array.from(dateSet).sort();
+  const dates = allDates.slice(-8); // Show last 8 dates
+  const today = new Date().toISOString().slice(0, 10);
 
   return h('div', { class: 'pad' },
     h('h2', { class: 'section-title' }, 'Attendance'),
-    h('p', { class: 'section-sub' }, 'Track lesson attendance'),
+    h('p', { class: 'section-sub' }, 'Track per-program attendance'),
 
+    // Program filter bar
+    h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' } },
+      ...programIds.map(pid =>
+        h('button', {
+          class: 'btn-outline' + (attendanceProgram === pid ? ' active' : ''),
+          onClick: () => { attendanceProgram = pid; render(); }
+        }, programSet[pid])
+      ),
+      h('button', {
+        class: 'btn-outline' + (isAllView ? ' active' : ''),
+        onClick: () => { attendanceProgram = '__all__'; render(); }
+      }, 'All')
+    ),
+
+    // Mark Today button (only for non-All view)
+    !isAllView ? h('div', { style: { marginBottom: '12px' } },
+      h('button', { class: 'btn btn-sm', onClick: () => {
+        filteredKeys.forEach(k => {
+          if (!students[k].attendance) students[k].attendance = {};
+          if (!students[k].attendance[attendanceProgram]) students[k].attendance[attendanceProgram] = {};
+          if (!students[k].attendance[attendanceProgram][today]) {
+            students[k].attendance[attendanceProgram][today] = { present: true };
+            fbSave("students/" + k + "/attendance/" + attendanceProgram + "/" + today, { present: true });
+          }
+        });
+        render();
+      }}, 'Mark All Present Today (' + fmtDate(today) + ')')
+    ) : '',
+
+    // Attendance grid
     h('div', { style: { overflowX: 'auto', marginBottom: '16px' } },
-      h('div', { class: 'attendance-grid' },
+      h('div', { class: 'attendance-grid', style: { gridTemplateColumns: '120px repeat(' + dates.length + ',1fr)' } },
         // Header row
         h('div', { class: 'attendance-cell attendance-header attendance-name' }, 'Student'),
         ...dates.map(d => h('div', { class: 'attendance-cell attendance-header' }, fmtDate(d))),
 
         // Student rows
-        ...keys.flatMap(key => {
+        ...filteredKeys.flatMap(key => {
           const s = students[key];
           return [
             h('div', { class: 'attendance-cell attendance-name' }, s.profile.name),
             ...dates.map(d => {
-              const att = (s.attendance || {})[d];
-              let icon = '—';
-              let color = 'var(--muted)';
+              if (isAllView) {
+                // All view: show aggregate (present in any program)
+                let present = false;
+                Object.values(s.attendance || {}).forEach(progAtt => {
+                  if (progAtt[d] && progAtt[d].present) present = true;
+                });
+                return h('div', { class: 'attendance-cell', style: { color: present ? 'var(--green)' : 'var(--muted)', fontSize: '16px' } }, present ? '✓' : '—');
+              }
+              // Per-program view: interactive
+              const att = ((s.attendance || {})[attendanceProgram] || {})[d];
+              let icon = '—', color = 'var(--muted)';
               if (att) {
                 if (att.present) { icon = '✓'; color = 'var(--green)'; }
-                else if (att.cancelled) { icon = '✕'; color = 'var(--yellow)'; }
                 else { icon = '✗'; color = 'var(--red)'; }
               }
               return h('div', {
                 class: 'attendance-cell attendance-toggle',
-                style: { color: color },
+                style: { color },
                 onClick: () => {
                   if (!s.attendance) s.attendance = {};
-                  if (!s.attendance[d]) {
-                    s.attendance[d] = { present: true };
-                  } else if (s.attendance[d].present) {
-                    s.attendance[d] = { present: false, cancelled: false };
-                  } else if (!s.attendance[d].cancelled) {
-                    s.attendance[d] = { present: false, cancelled: true, note: 'Cancelled' };
+                  if (!s.attendance[attendanceProgram]) s.attendance[attendanceProgram] = {};
+                  const cur = s.attendance[attendanceProgram][d];
+                  if (!cur) {
+                    s.attendance[attendanceProgram][d] = { present: true };
+                  } else if (cur.present) {
+                    s.attendance[attendanceProgram][d] = { present: false };
                   } else {
-                    delete s.attendance[d];
+                    delete s.attendance[attendanceProgram][d];
                   }
-                  saveLocalData();
+                  fbSave("students/" + key + "/attendance/" + attendanceProgram + "/" + d, s.attendance[attendanceProgram][d] || null);
                   render();
                 }
               }, icon);
@@ -848,20 +1099,25 @@ function renderAttendance() {
       h('div', { style: { display: 'flex', gap: '16px', fontSize: '12px' } },
         h('span', { style: { color: 'var(--green)' } }, '✓ Present'),
         h('span', { style: { color: 'var(--red)' } }, '✗ Absent'),
-        h('span', { style: { color: 'var(--yellow)' } }, '✕ Cancelled'),
-        h('span', { style: { color: 'var(--muted)' } }, '— No lesson')
+        h('span', { style: { color: 'var(--muted)' } }, '— No record')
       ),
-      h('p', { style: { color: 'var(--muted)', fontSize: '11px', marginTop: '6px' } }, 'Click to cycle: present → absent → cancelled → clear')
+      !isAllView ? h('p', { style: { color: 'var(--muted)', fontSize: '11px', marginTop: '6px' } }, 'Click to cycle: present → absent → clear') : ''
     ),
 
     h('div', { class: 'card' },
       h('div', { class: 'label' }, 'Attendance Summary'),
-      ...keys.map(key => {
+      ...filteredKeys.map(key => {
         const s = students[key];
-        const rate = getAttendanceRate(key);
-        const entries = Object.values(s.attendance || {});
-        const total = entries.filter(e => !e.cancelled).length;
-        const attended = entries.filter(e => e.present).length;
+        let attended = 0, total = 0;
+        if (isAllView) {
+          Object.values(s.attendance || {}).forEach(progAtt => {
+            Object.values(progAtt).forEach(a => { total++; if (a.present) attended++; });
+          });
+        } else {
+          const progAtt = (s.attendance || {})[attendanceProgram] || {};
+          Object.values(progAtt).forEach(a => { total++; if (a.present) attended++; });
+        }
+        const rate = total ? Math.round(attended / total * 100) : 100;
         return h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' } },
           h('span', { style: { fontWeight: '600', fontSize: '13px' } }, s.profile.name),
           h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
@@ -876,60 +1132,51 @@ function renderAttendance() {
 
 function renderPayments() {
   const students = localData.students;
-  const keys = Object.keys(students);
+  const keys = Object.keys(students).filter(k => students[k].profile.active !== false);
 
   if (paymentStudent) {
     const s = students[paymentStudent];
-    const balance = getBalance(paymentStudent);
-    const billing = (s.billing || []).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const billing = computeStudentBilling(paymentStudent);
+    const paymentList = Object.entries(s.payments || {}).map(([id, p]) => ({ id, ...p })).sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return h('div', { class: 'pad' },
       h('button', { class: 'btn-outline', style: { marginBottom: '12px' }, onClick: () => { paymentStudent = null; render(); } }, '← Back'),
       h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' } },
         h('h2', { class: 'section-title' }, s.profile.name),
-        h('span', { class: 'badge ' + (balance > 0 ? 'badge-red' : 'badge-green') }, balance > 0 ? 'Balance Due' : 'Paid Up')
+        h('span', { class: 'badge ' + getStatusBadge(billing.invoiceStatus) }, billing.invoiceStatus)
       ),
 
       h('div', { class: 'stats' },
-        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Balance'), h('div', { class: 'stat-value', style: { color: balance > 0 ? 'var(--red)' : 'var(--green)' } }, (balance > 0 ? '' : '-') + fmtCurrency(balance))),
-        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Private'), h('div', { class: 'stat-value' }, '$' + (s.profile.privateRate || s.profile.rate || 75)), h('div', { class: 'stat-sub' }, '/lesson')),
-        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Group'), h('div', { class: 'stat-value' }, '$' + (s.profile.groupRate || 50)), h('div', { class: 'stat-sub' }, '/lesson'))
+        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Tuition Owed'), h('div', { class: 'stat-value', style: { color: billing.tuitionOwed > 0 ? 'var(--red)' : billing.tuitionOwed < 0 ? 'var(--blue)' : 'var(--green)' } }, (billing.tuitionOwed < 0 ? '-' : '') + fmtCurrency(billing.tuitionOwed))),
+        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Total Tuition'), h('div', { class: 'stat-value' }, fmtCurrency(billing.totalTuition))),
+        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Total Paid'), h('div', { class: 'stat-value', style: { color: 'var(--green)' } }, fmtCurrency(billing.totalPaid))),
+        h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, 'Classes'), h('div', { class: 'stat-value' }, '' + billing.totalClasses))
       ),
 
-      // Add charge
-      h('div', { class: 'card card-accent' },
-        h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '10px' } }, 'Add Charge'),
-        h('div', { class: 'form-row' },
-          h('div', { class: 'form-group' },
-            h('label', {}, 'Category'),
-            h('select', { class: 'input', id: 'charge-category', onChange: () => {
-              const cat = document.getElementById('charge-category').value;
-              const amtEl = document.getElementById('charge-amount');
-              amtEl.value = cat === 'private' ? (s.profile.privateRate || s.profile.rate || 75) : (s.profile.groupRate || 50);
-            } },
-              h('option', { value: 'private' }, 'Private Lesson'),
-              h('option', { value: 'group' }, 'Group Lesson')
-            )
-          ),
-          h('div', { class: 'form-group' },
-            h('label', {}, 'Amount'),
-            h('input', { class: 'input', id: 'charge-amount', type: 'number', value: '' + (s.profile.privateRate || s.profile.rate || 75) })
+      // Per-program breakdown
+      h('div', { class: 'card' },
+        h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '10px' } }, 'Billing Breakdown (computed from attendance)'),
+        ...Object.entries(billing.perProgram).map(([pid, pp]) =>
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' } },
+            h('div', {},
+              h('div', { style: { fontWeight: '600', fontSize: '13px' } }, pp.name),
+              h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, pp.attended + ' classes × $' + pp.rate)
+            ),
+            h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '16px', fontWeight: '700' } }, fmtCurrency(pp.tuition))
           )
         ),
-        h('div', { class: 'form-group' },
-          h('label', {}, 'Note'),
-          h('input', { class: 'input', id: 'charge-note', placeholder: 'e.g. Private lesson — Feb 12' })
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontWeight: '700', fontSize: '13px' } },
+          h('span', {}, 'Total Tuition'),
+          h('span', {}, fmtCurrency(billing.totalTuition))
         ),
-        h('button', { class: 'btn', style: { background: 'var(--accent-dim)' }, onClick: () => {
-          const amount = parseFloat(document.getElementById('charge-amount').value);
-          const category = document.getElementById('charge-category').value;
-          const note = document.getElementById('charge-note').value;
-          if (!amount || amount <= 0) return;
-          s.billing.push({ id: uid(), date: new Date().toISOString().slice(0, 10), type: 'charge', amount, method: null, category, note: note || (category === 'private' ? 'Private lesson' : 'Group lesson') });
-          if (getBalance(paymentStudent) > 0) s.paymentStatus = 'overdue';
-          saveLocalData();
-          render();
-        }}, 'Add Charge')
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px', color: 'var(--green)' } },
+          h('span', {}, 'Total Paid'),
+          h('span', {}, '-' + fmtCurrency(billing.totalPaid))
+        ),
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontWeight: '700', fontSize: '15px', borderTop: '2px solid var(--border)', color: billing.tuitionOwed > 0 ? 'var(--red)' : billing.tuitionOwed < 0 ? 'var(--blue)' : 'var(--green)' } },
+          h('span', {}, billing.tuitionOwed >= 0 ? 'Balance Due' : 'Credit'),
+          h('span', {}, (billing.tuitionOwed < 0 ? '-' : '') + fmtCurrency(billing.tuitionOwed))
+        )
       ),
 
       // Record payment
@@ -938,7 +1185,7 @@ function renderPayments() {
         h('div', { class: 'form-row' },
           h('div', { class: 'form-group' },
             h('label', {}, 'Amount'),
-            h('input', { class: 'input', id: 'pay-amount', type: 'number', placeholder: '' + (s.profile.privateRate || s.profile.rate || 75), value: '' + balance })
+            h('input', { class: 'input', id: 'pay-amount', type: 'number', value: '' + Math.max(0, billing.tuitionOwed) })
           ),
           h('div', { class: 'form-group' },
             h('label', {}, 'Method'),
@@ -947,6 +1194,7 @@ function renderPayments() {
               h('option', { value: 'Zelle' }, 'Zelle'),
               h('option', { value: 'Cash' }, 'Cash'),
               h('option', { value: 'Check' }, 'Check'),
+              h('option', { value: 'PayPal' }, 'PayPal'),
               h('option', { value: 'Other' }, 'Other')
             )
           )
@@ -960,32 +1208,31 @@ function renderPayments() {
           const method = document.getElementById('pay-method').value;
           const note = document.getElementById('pay-note').value;
           if (!amount || amount <= 0) return;
-          s.billing.push({ id: uid(), date: new Date().toISOString().slice(0, 10), type: 'payment', amount, method, category: 'payment', note });
-          if (getBalance(paymentStudent) <= 0) s.paymentStatus = 'current';
-          saveLocalData();
+          const payId = uid();
+          if (!s.payments) s.payments = {};
+          s.payments[payId] = { date: new Date().toISOString().slice(0, 10), amount, method, note, programId: null };
+          fbSave("students/" + paymentStudent + "/payments/" + payId, s.payments[payId]);
           render();
         }}, 'Record Payment')
       ),
 
-      // Transaction history
+      // Payment history
       h('div', { class: 'card' },
-        h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '10px' } }, 'Transaction History'),
-        ...billing.map(entry => {
-          const catLabel = entry.category === 'private' ? 'Private' : entry.category === 'group' ? 'Group' : '';
-          return h('div', { class: 'payment-row' },
+        h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '10px' } }, 'Payment History (' + paymentList.length + ')'),
+        ...paymentList.map(entry =>
+          h('div', { class: 'payment-row' },
             h('div', { style: { width: '80px' } },
-              h('span', { class: 'payment-amount ' + (entry.type === 'payment' ? 'payment-positive' : 'payment-negative') },
-                (entry.type === 'payment' ? '+' : '-') + fmtCurrency(entry.amount)
-              )
+              h('span', { class: 'payment-amount payment-positive' }, '+' + fmtCurrency(entry.amount))
             ),
             h('div', { style: { flex: '1', minWidth: '0' } },
-              h('div', { style: { fontSize: '12px' } }, entry.note || (entry.type === 'charge' ? 'Lesson charge' : 'Payment')),
+              h('div', { style: { fontSize: '12px' } }, entry.note || 'Payment'),
               h('div', { style: { fontSize: '10px', color: 'var(--muted)' } },
-                fmtDateFull(entry.date) + (entry.method ? ' · ' + entry.method : '') + (catLabel ? ' · ' + catLabel : ''))
+                fmtDateFull(entry.date) + (entry.method ? ' · ' + entry.method : '') + (entry.programId ? ' · ' + entry.programId : ''))
             ),
-            h('span', { class: 'badge ' + (entry.type === 'payment' ? 'badge-green' : entry.category === 'group' ? 'badge-blue' : 'badge-accent') }, entry.type === 'payment' ? 'payment' : catLabel || 'charge')
-          );
-        })
+            h('span', { class: 'badge badge-green' }, 'payment')
+          )
+        ),
+        paymentList.length === 0 ? h('div', { style: { color: 'var(--muted)', fontSize: '12px', padding: '8px 0' } }, 'No payments recorded') : ''
       )
     );
   }
@@ -1000,9 +1247,9 @@ function renderPayments() {
     const year = d.getFullYear();
     let total = 0;
     keys.forEach(k => {
-      (students[k].billing || []).filter(b => b.type === 'payment').forEach(b => {
-        const bd = new Date(b.date + 'T12:00:00');
-        if (bd.getMonth() === month && bd.getFullYear() === year) total += b.amount;
+      Object.values(students[k].payments || {}).forEach(p => {
+        const pd = new Date(p.date + 'T12:00:00');
+        if (pd.getMonth() === month && pd.getFullYear() === year) total += (p.amount || 0);
       });
     });
     revenueByMonth.push({ label: monthNames[month], amount: total });
@@ -1011,7 +1258,7 @@ function renderPayments() {
 
   return h('div', { class: 'pad' },
     h('h2', { class: 'section-title' }, 'Payments'),
-    h('p', { class: 'section-sub' }, 'Track payments and balances'),
+    h('p', { class: 'section-sub' }, 'Tuition computed from attendance — record payments only'),
 
     h('div', { class: 'card' },
       h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '8px' } }, 'Monthly Revenue'),
@@ -1028,16 +1275,17 @@ function renderPayments() {
 
     ...keys.map(key => {
       const s = students[key];
-      const balance = getBalance(key);
+      const billing = computeStudentBilling(key);
+      const programNames = getStudentProgramNames(key);
       return h('div', { class: 'student-card', onClick: () => { paymentStudent = key; render(); } },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
           h('div', {},
             h('div', { class: 'student-name' }, s.profile.name),
-            h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, s.profile.program + ' · $' + (s.profile.privateRate || s.profile.rate || 75) + ' priv · $' + (s.profile.groupRate || 50) + ' group')
+            h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, programNames + ' · ' + billing.totalClasses + ' classes')
           ),
           h('div', { style: { textAlign: 'right' } },
-            h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '20px', fontWeight: '700', color: balance > 0 ? 'var(--red)' : 'var(--green)' } }, (balance > 0 ? '' : '') + fmtCurrency(balance)),
-            h('span', { class: 'badge ' + (balance > 0 ? 'badge-red' : 'badge-green') }, balance > 0 ? 'Due' : 'Paid')
+            h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '20px', fontWeight: '700', color: billing.tuitionOwed > 0 ? 'var(--red)' : billing.tuitionOwed < 0 ? 'var(--blue)' : 'var(--green)' } }, (billing.tuitionOwed < 0 ? '-' : '') + fmtCurrency(billing.tuitionOwed)),
+            h('span', { class: 'badge ' + getStatusBadge(billing.invoiceStatus) }, billing.invoiceStatus)
           )
         )
       );
@@ -1085,7 +1333,7 @@ function renderLessonInput() {
           processed: false,
           savedAt: new Date().toISOString()
         });
-        saveLocalData();
+        saveLocalData(['lessonTranscripts']);
 
         // Clear form
         document.getElementById('lesson-transcript').value = '';
@@ -1190,7 +1438,19 @@ function renderAddEnsembleForm() {
         info: { name, schedule, location, members: [...newEnsMembers] },
         repertoire: []
       };
-      saveLocalData();
+      // Add program entry for students selected as members
+      for (const memberName of newEnsMembers) {
+        const studentEntry = Object.entries(localData.students).find(([, s]) => s.profile.name === memberName);
+        if (studentEntry) {
+          const [sKey, sData] = studentEntry;
+          if (!sData.programs) sData.programs = {};
+          if (!sData.programs[key]) {
+            sData.programs[key] = { type: 'ensemble', name, ensembleId: key, rate: 62.50, lessonDay: null, lessonTime: null };
+            fbSave("students/" + sKey + "/programs/" + key, sData.programs[key]);
+          }
+        }
+      }
+      saveLocalData(['ensembles']);
       showAddEnsemble = false;
       newEnsMembers = [];
       render();
@@ -1236,16 +1496,52 @@ function renderEditEnsembleForm(key) {
         const schedule = document.getElementById('edit-ens-schedule').value.trim();
         const location = document.getElementById('edit-ens-location').value.trim();
         if (!name) { alert('Ensemble name is required.'); return; }
-        ens.info = { ...ens.info, name, schedule, location, members: [...editEnsMembers] };
-        saveLocalData();
+        const oldMembers = ens.info.members || [];
+        const newMembers = [...editEnsMembers];
+        // Remove program entry for removed members
+        for (const memberName of oldMembers) {
+          if (!newMembers.includes(memberName)) {
+            const studentEntry = Object.entries(localData.students).find(([, s]) => s.profile.name === memberName);
+            if (studentEntry) {
+              const [sKey, sData] = studentEntry;
+              if (sData.programs && sData.programs[key]) {
+                delete sData.programs[key];
+                fbSave("students/" + sKey + "/programs/" + key, null);
+              }
+            }
+          }
+        }
+        // Add program entry for added members
+        for (const memberName of newMembers) {
+          if (!oldMembers.includes(memberName)) {
+            const studentEntry = Object.entries(localData.students).find(([, s]) => s.profile.name === memberName);
+            if (studentEntry) {
+              const [sKey, sData] = studentEntry;
+              if (!sData.programs) sData.programs = {};
+              if (!sData.programs[key]) {
+                sData.programs[key] = { type: 'ensemble', name, ensembleId: key, rate: 62.50, lessonDay: null, lessonTime: null };
+                fbSave("students/" + sKey + "/programs/" + key, sData.programs[key]);
+              }
+            }
+          }
+        }
+        ens.info = { ...ens.info, name, schedule, location, members: newMembers };
+        saveLocalData(['ensembles']);
         editingEnsemble = null;
         editEnsMembers = [];
         render();
       }}, 'Save Changes'),
       h('button', { class: 'btn-outline', style: { color: 'var(--red)', borderColor: 'var(--red)' }, onClick: () => {
         if (!confirm('Delete ' + info.name + '? This removes the ensemble and all its repertoire. This cannot be undone.')) return;
+        // Remove this ensemble's program entry from all students
+        for (const [sKey, student] of Object.entries(localData.students)) {
+          if (student.programs && student.programs[key]) {
+            delete student.programs[key];
+            fbSave("students/" + sKey + "/programs/" + key, null);
+          }
+        }
         delete localData.ensembles[key];
-        saveLocalData();
+        saveLocalData(['ensembles']);
         editingEnsemble = null;
         render();
       }}, 'Delete Ensemble')
@@ -1337,7 +1633,7 @@ function renderEnsembles() {
                     song.artist = document.getElementById('edit-song-artist').value.trim() || song.artist;
                     song.status = document.getElementById('edit-song-status').value;
                     song.notes = document.getElementById('edit-song-notes').value.trim();
-                    saveLocalData();
+                    saveLocalData(['ensembles']);
                     editingSong = null;
                     render();
                   }}, 'Save'),
@@ -1346,7 +1642,7 @@ function renderEnsembles() {
                     if (!confirm('Remove "' + song.title + '" from repertoire?')) return;
                     const idx = ens.repertoire.findIndex(r => r.id === song.id);
                     if (idx !== -1) ens.repertoire.splice(idx, 1);
-                    saveLocalData();
+                    saveLocalData(['ensembles']);
                     editingSong = null;
                     render();
                   }}, 'Remove')
@@ -1354,13 +1650,65 @@ function renderEnsembles() {
               );
             }
             // Normal display — tap to edit
-            return h('div', { class: 'repertoire-item', style: { cursor: 'pointer' }, onClick: () => { editingSong = { ensKey: key, songId: song.id }; render(); } },
-              h('div', { style: { minWidth: '0' } },
-                h('div', { style: { fontSize: '13px', fontWeight: '600' } }, song.title),
-                h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, song.artist + (song.notes ? ' — ' + song.notes : ''))
+            const songEl = h('div', {},
+              h('div', { class: 'repertoire-item', style: { cursor: 'pointer' }, onClick: () => { editingSong = { ensKey: key, songId: song.id }; render(); } },
+                h('div', { style: { minWidth: '0' } },
+                  h('div', { style: { fontSize: '13px', fontWeight: '600' } }, song.title),
+                  h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, song.artist + (song.notes ? ' — ' + song.notes : ''))
+                ),
+                h('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } },
+                  h('button', { class: 'btn-outline', style: { padding: '2px 8px', fontSize: '10px' }, onClick: (e) => { e.stopPropagation(); assigningSong = { ensKey: key, songId: song.id, songTitle: song.title }; render(); } }, 'Assign'),
+                  h('span', { class: 'badge ' + statusColors[song.status].badge }, statusColors[song.status].label)
+                )
               ),
-              h('span', { class: 'badge ' + statusColors[song.status].badge }, statusColors[song.status].label)
+              // Inline assign form
+              assigningSong && assigningSong.ensKey === key && assigningSong.songId === song.id
+                ? (() => {
+                    const members = (ens.info && ens.info.members) || [];
+                    // Build student key lookup from member names
+                    const memberStudents = members.map(name => {
+                      const entry = Object.entries(localData.students).find(([, s]) => s.profile.name === name);
+                      return entry ? { name, key: entry[0] } : { name, key: null };
+                    });
+                    return h('div', { style: { background: 'var(--surface2)', border: '1px solid var(--purple)', borderRadius: '8px', padding: '10px', marginBottom: '6px' } },
+                      h('div', { style: { fontSize: '11px', color: 'var(--purple)', fontWeight: '600', marginBottom: '6px' } }, 'Assign: ' + song.title),
+                      h('div', { class: 'form-row' },
+                        h('div', { class: 'form-group' },
+                          h('label', {}, 'For'),
+                          h('select', { class: 'input', id: 'assign-student' },
+                            h('option', { value: '' }, 'All Students'),
+                            ...memberStudents.map(m => h('option', { value: m.key || '' }, m.name))
+                          )
+                        ),
+                        h('div', { class: 'form-group' },
+                          h('label', {}, 'Due Date (optional)'),
+                          h('input', { class: 'input', id: 'assign-due', type: 'date' })
+                        )
+                      ),
+                      h('div', { class: 'form-group' },
+                        h('label', {}, 'Assignment Description'),
+                        h('textarea', { class: 'input', id: 'assign-text', rows: '2', placeholder: 'e.g. Practice measures 1-16, focus on dynamics', style: { resize: 'vertical' } })
+                      ),
+                      h('div', { style: { display: 'flex', gap: '6px', marginTop: '4px' } },
+                        h('button', { class: 'btn btn-sm', onClick: () => {
+                          const text = document.getElementById('assign-text').value.trim();
+                          if (!text) { alert('Assignment description is required.'); return; }
+                          const dueDate = document.getElementById('assign-due').value || null;
+                          const studentKey = document.getElementById('assign-student').value || null;
+                          const studentName = studentKey ? (memberStudents.find(m => m.key === studentKey) || {}).name || null : null;
+                          if (!ens.assignments) ens.assignments = [];
+                          ens.assignments.push({ id: uid(), songId: song.id, songTitle: song.title, text, dueDate, assignedDate: new Date().toISOString().slice(0, 10), studentKey, studentName });
+                          saveLocalData(['ensembles']);
+                          assigningSong = null;
+                          render();
+                        }}, 'Save Assignment'),
+                        h('button', { class: 'btn-outline', onClick: () => { assigningSong = null; render(); } }, 'Cancel')
+                      )
+                    );
+                  })()
+                : ''
             );
+            return songEl;
           }),
           // Add song form or button
           addingSongTo === key
@@ -1398,7 +1746,7 @@ function renderEnsembles() {
                     if (!title) { alert('Song title is required.'); return; }
                     if (!ens.repertoire) ens.repertoire = [];
                     ens.repertoire.push({ id: uid(), title, artist: artist || 'Unknown', status, notes });
-                    saveLocalData();
+                    saveLocalData(['ensembles']);
                     addingSongTo = null;
                     render();
                   }}, 'Add Song'),
@@ -1406,7 +1754,33 @@ function renderEnsembles() {
                 )
               )
             : h('button', { class: 'btn-outline', style: { marginTop: '8px', fontSize: '11px' }, onClick: () => { addingSongTo = key; render(); } }, '+ Add Song')
-        )
+        ),
+
+        // Existing assignments
+        ens.assignments && (Array.isArray(ens.assignments) ? ens.assignments : Object.values(ens.assignments)).length > 0
+          ? h('div', { style: { marginTop: '12px' } },
+              h('div', { class: 'label' }, 'Assignments'),
+              ...(Array.isArray(ens.assignments) ? ens.assignments : Object.values(ens.assignments)).map(a =>
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 10px', background: 'var(--surface2)', borderRadius: '8px', marginBottom: '4px' } },
+                  h('div', { style: { minWidth: '0', flex: '1' } },
+                    h('div', { style: { fontSize: '12px', fontWeight: '600', color: 'var(--purple)' } }, a.songTitle + (a.dueDate ? ' — due ' + a.dueDate : '')),
+                    h('div', { style: { fontSize: '10px', color: a.studentName ? 'var(--blue)' : 'var(--green)', fontWeight: '600', marginTop: '2px' } }, a.studentName ? a.studentName : 'All Students'),
+                    h('div', { style: { fontSize: '12px', color: 'var(--text)', marginTop: '2px' } }, a.text),
+                    h('div', { style: { fontSize: '10px', color: 'var(--muted)', marginTop: '2px' } }, 'Assigned ' + a.assignedDate)
+                  ),
+                  h('button', { class: 'btn-outline', style: { padding: '2px 6px', fontSize: '9px', color: 'var(--red)', borderColor: 'var(--red)', flexShrink: '0', marginLeft: '8px' }, onClick: () => {
+                    if (!confirm('Remove this assignment?')) return;
+                    const assignments = Array.isArray(ens.assignments) ? ens.assignments : Object.values(ens.assignments);
+                    const idx = assignments.findIndex(x => x.id === a.id);
+                    if (idx !== -1) assignments.splice(idx, 1);
+                    ens.assignments = assignments;
+                    saveLocalData(['ensembles']);
+                    render();
+                  }}, 'Remove')
+                )
+              )
+            )
+          : ''
       );
     })
   );
@@ -1450,7 +1824,7 @@ function render() {
   app.appendChild(h('div', { class: 'bottom-nav' },
     ...tabs.map((t, i) => h('button', {
       class: 'nav-btn' + (currentTab === i ? ' active' : ''),
-      onClick: () => { currentTab = i; paymentStudent = null; editingStudent = null; editingEnsemble = null; editingSong = null; addingSongTo = null; showAddStudent = false; showAddEnsemble = false; render(); }
+      onClick: () => { currentTab = i; paymentStudent = null; editingStudent = null; editingEnsemble = null; editingSong = null; addingSongTo = null; assigningSong = null; showAddStudent = false; showAddEnsemble = false; render(); }
     },
       h('span', { class: 'nav-icon' }, t.icon),
       t.label

@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Professor of Funk — Data Migration</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0a0a0f;color:#e8e8ef;font-family:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;font-size:14px;padding:20px;max-width:900px;margin:0 auto;}
+h1{font-size:24px;color:#D4943A;margin-bottom:4px;}
+h2{font-size:16px;color:#D4943A;margin:20px 0 8px;}
+.sub{color:#888;font-size:12px;margin-bottom:20px;}
+button{background:#D4943A;color:#000;border:none;border-radius:8px;padding:10px 24px;font-weight:600;font-size:14px;cursor:pointer;margin:4px;}
+button:disabled{opacity:0.5;cursor:default;}
+button.danger{background:#f87171;}
+button.outline{background:transparent;border:1px solid #2a2a35;color:#888;}
+#log{background:#13131a;border:1px solid #2a2a35;border-radius:10px;padding:16px;margin-top:16px;max-height:500px;overflow-y:auto;font-family:monospace;font-size:12px;line-height:1.8;white-space:pre-wrap;}
+.log-ok{color:#4ade80;} .log-warn{color:#fbbf24;} .log-err{color:#f87171;} .log-info{color:#60a5fa;}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:12px 0;}
+.stat{background:#13131a;border:1px solid #2a2a35;border-radius:8px;padding:10px;text-align:center;}
+.stat-val{font-size:20px;font-weight:700;color:#D4943A;}
+.stat-label{font-size:10px;color:#888;text-transform:uppercase;}
+input{background:#13131a;border:1px solid #2a2a35;border-radius:8px;padding:8px 12px;color:#e8e8ef;font-size:14px;width:260px;text-align:center;outline:none;}
+input:focus{border-color:#D4943A;}
+#auth-gate{display:flex;align-items:center;justify-content:center;height:80vh;text-align:center;}
+#migration-panel{display:none;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+<div id="auth-gate">
+<div>
+<div style="font-size:48px;margin-bottom:12px;">🔄</div>
+<h1>Data Migration</h1>
+<div class="sub">Admin access required — Google Sheet → Firebase</div>
+<input id="auth-email" type="email" placeholder="Admin email" style="margin-bottom:8px;"><br>
+<input id="auth-pw" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"><br>
+<button onclick="doLogin()" style="margin-top:12px;">Sign In</button>
+<div id="auth-err" style="color:#f87171;font-size:12px;margin-top:8px;display:none;">Auth failed</div>
+</div>
+</div>
+
+<div id="migration-panel">
+<h1>Professor of Funk — Data Migration</h1>
+<div class="sub">One-time migration: Google Sheet → Firebase RTDB (new schema)</div>
+
+<div class="stats">
+<div class="stat"><div class="stat-val">18</div><div class="stat-label">Enrollments</div></div>
+<div class="stat"><div class="stat-val">17</div><div class="stat-label">Unique Students</div></div>
+<div class="stat"><div class="stat-val">78</div><div class="stat-label">Payments</div></div>
+<div class="stat"><div class="stat-val">4</div><div class="stat-label">Programs</div></div>
+</div>
+
+<div style="margin:16px 0;">
+<button onclick="runMigration()">Run Full Migration</button>
+<button class="outline" onclick="runDryRun()">Dry Run (no writes)</button>
+<button class="danger" onclick="if(confirm('This will delete ALL student data and re-run migration. Are you sure?'))runMigration(true)">Reset & Migrate</button>
+</div>
+
+<div id="log"></div>
+</div>
+
+<script>
+/* ===== FIREBASE ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBAVSC2g5xfnUXqkBoBX8TspITgDg_4FMo",
+  authDomain: "professor-of-funk.firebaseapp.com",
+  databaseURL: "https://professor-of-funk-default-rtdb.firebaseio.com",
+  projectId: "professor-of-funk",
+  storageBucket: "professor-of-funk.firebasestorage.app",
+  messagingSenderId: "409198973109",
+  appId: "1:409198973109:web:1c2aa4fd4611130b236efc"
+};
+const fbApp = firebase.initializeApp(firebaseConfig);
+const fbDb = firebase.database();
+const DB = "professorOfFunk";
+const secondaryApp = firebase.initializeApp(firebaseConfig, 'secondary');
+
+function dbRef(path) { return fbDb.ref(DB + "/" + path); }
+
+async function doLogin() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pw = document.getElementById('auth-pw').value;
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, pw);
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('migration-panel').style.display = 'block';
+  } catch(e) {
+    document.getElementById('auth-err').style.display = 'block';
+    document.getElementById('auth-err').textContent = e.message;
+  }
+}
+
+/* ===== LOGGING ===== */
+const logEl = () => document.getElementById('log');
+function log(msg, cls='') { logEl().innerHTML += `<span class="${cls}">${msg}</span>\n`; logEl().scrollTop = logEl().scrollHeight; }
+function logOk(msg) { log('✓ ' + msg, 'log-ok'); }
+function logWarn(msg) { log('⚠ ' + msg, 'log-warn'); }
+function logErr(msg) { log('✗ ' + msg, 'log-err'); }
+function logInfo(msg) { log('→ ' + msg, 'log-info'); }
+
+/* ===== DATE HELPERS ===== */
+function sheetDate(mdy) {
+  if (!mdy) return null;
+  const parts = mdy.trim().split('/');
+  if (parts.length !== 3) return null;
+  const [m, d, y] = parts;
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+
+function normMethod(m) {
+  if (!m) return '';
+  const l = m.trim().toLowerCase();
+  if (l === 'venmo') return 'Venmo';
+  if (l === 'zelle') return 'Zelle';
+  if (l === 'paypal') return 'PayPal';
+  if (l === 'cash') return 'Cash';
+  if (l === 'check') return 'Check';
+  return m.trim();
+}
+
+function studentKey(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+/* =========================================================================
+   HARDCODED SHEET DATA
+   ========================================================================= */
+
+const STUDENTS = [
+  { name:"Sonya Cheris", ageGrade:"13 / 8th", instrument:"voice", skillLevel:"advanced", parentNames:"Aaron Cheris", allergies:"None", ensemble:"Adv. Groove Ensemble", startDate:"3/8/2025", classesAttended:16, totalTuition:1000, tuitionPaid:1000, tuitionOwed:0, invoiceStatus:"Paid", active:false, service:"Band Coaching", parentEmail:"aaron.cheris@bain.com", phone:"", emergencyContact:"" },
+  { name:"Liam Hogan", ageGrade:"16 / 11th", instrument:"keyboard", skillLevel:"advanced", parentNames:"Steve Hogan", allergies:"None", ensemble:"Adv. Groove Ensemble", startDate:"4/12/2025", classesAttended:23, totalTuition:1437.50, tuitionPaid:1187.50, tuitionOwed:250, invoiceStatus:"Drafted", active:true, service:"Band Coaching", parentEmail:"shogan0374@yahoo.com", phone:"", emergencyContact:"" },
+  { name:"Rea Horgan", ageGrade:"16 / 11th", instrument:"bass", skillLevel:"advanced", parentNames:"Chris Horgan", allergies:"None", ensemble:"Adv. Groove Ensemble", startDate:"3/22/2025", classesAttended:27, totalTuition:1687.50, tuitionPaid:1125, tuitionOwed:562.50, invoiceStatus:"Drafted", active:true, service:"Band Coaching", parentEmail:"triplecmusic@gmail.com", phone:"", emergencyContact:"" },
+  { name:"Louis Munck", ageGrade:"15 / 10th", instrument:"drums", skillLevel:"advanced", parentNames:"Edouard Munck", allergies:"None", ensemble:"Adv. Groove Ensemble", startDate:"3/8/2025", classesAttended:25, totalTuition:1562.50, tuitionPaid:1312.50, tuitionOwed:250, invoiceStatus:"Drafted", active:true, service:"Band Coaching", parentEmail:"edouard.munck@gmail.com", phone:"", emergencyContact:"" },
+  { name:"Hendrix Adair", ageGrade:"10 / 4th", instrument:"guitar", skillLevel:"beginner", parentNames:"Erik Adair", allergies:"PEANUT ALLERGY", ensemble:"Beg. Groove Ensemble", startDate:"4/19/2025", classesAttended:20, totalTuition:1250, tuitionPaid:937.50, tuitionOwed:312.50, invoiceStatus:"Drafted", active:true, service:"Band Coaching", parentEmail:"adairerik@yahoo.com", phone:"", emergencyContact:"" },
+  { name:"Anya Jayaraman", ageGrade:"13 / 8th", instrument:"voice", skillLevel:"beginner", parentNames:"Divya Bhat, Gautam Jayaraman", allergies:"", ensemble:"Beg. Groove Ensemble", startDate:"5/3/2025", classesAttended:17, totalTuition:1062.50, tuitionPaid:1000, tuitionOwed:62.50, invoiceStatus:"Overpaid", active:true, service:"Band Coaching", parentEmail:"divyab@gmail.com, gautamj@gmail.com", phone:"", emergencyContact:"" },
+  { name:"Sai Jayaraman", ageGrade:"13 / 8th", instrument:"drums", skillLevel:"beginner", parentNames:"Divya Bhat, Gautam Jayaraman", allergies:"Allergic to Max", ensemble:"Beg. Groove Ensemble", startDate:"4/19/2025", classesAttended:21, totalTuition:1312.50, tuitionPaid:1250, tuitionOwed:62.50, invoiceStatus:"Paid", active:true, service:"Band Coaching", parentEmail:"divyab@gmail.com, gautamj@gmail.com", phone:"", emergencyContact:"" },
+  { name:"Max Flanagan", ageGrade:"13 / 8th", instrument:"keyboard", skillLevel:"beginner", parentNames:"August Flanagan", allergies:"Allergic to Sai", ensemble:"Beg. Groove Ensemble", startDate:"4/19/2025", classesAttended:19, totalTuition:1187.50, tuitionPaid:1000, tuitionOwed:187.50, invoiceStatus:"Drafted", active:true, service:"Band Coaching", parentEmail:"august.flanagan@gmail.com", phone:"", emergencyContact:"" },
+  { name:"Ayton Price", ageGrade:"12 / 7th", instrument:"bass", skillLevel:"beginner", parentNames:"Matt Price", allergies:"", ensemble:"Beg. Groove Ensemble", startDate:"4/19/2025", classesAttended:20, totalTuition:1250, tuitionPaid:1000, tuitionOwed:250, invoiceStatus:"Drafted", active:true, service:"Band Coaching", parentEmail:"mattalexprice@gmail.com", phone:"", emergencyContact:"" },
+  { name:"Mason Wong", ageGrade:"6th", instrument:"drums", skillLevel:"", parentNames:"Gloria Wong", allergies:"", ensemble:"Private Lessons", startDate:"9/18/2025", classesAttended:12, totalTuition:450, tuitionPaid:750, tuitionOwed:-300, invoiceStatus:"Drafted", active:true, service:"Private Instruction", parentEmail:"gloria@gloriawongdesign.com", phone:"", emergencyContact:"" },
+  { name:"Mia Wong", ageGrade:"6th", instrument:"voice/keys", skillLevel:"", parentNames:"Gloria Wong", allergies:"", ensemble:"Private Lessons", startDate:"9/18/2025", classesAttended:12, totalTuition:450, tuitionPaid:0, tuitionOwed:450, invoiceStatus:"Drafted", active:true, service:"Private Instruction", parentEmail:"gloria@gloriawongdesign.com", phone:"", emergencyContact:"" },
+  { name:"Sammy Fishkin", ageGrade:"9th", instrument:"Drums", skillLevel:"", parentNames:"Alexander Fishkin", allergies:"", ensemble:"Challaday", startDate:"8/23/2025", classesAttended:18, totalTuition:1125, tuitionPaid:1000, tuitionOwed:125, invoiceStatus:"Unpaid", active:true, service:"Band Coaching", parentEmail:"alexander.fishkin@gmail.com", phone:"", emergencyContact:"" },
+  { name:"George Robbins", ageGrade:"9th", instrument:"Trumpet", skillLevel:"", parentNames:"Andrew Robbins, Kate Bedford", allergies:"", ensemble:"Challaday", startDate:"8/23/2025", classesAttended:18, totalTuition:1125, tuitionPaid:750, tuitionOwed:375, invoiceStatus:"Drafted", active:true, service:"Band Coaching", parentEmail:"andrewrobbins@gmail.com", phone:"", emergencyContact:"" },
+  { name:"Adam Bensinger", ageGrade:"9th", instrument:"Guitar", skillLevel:"", parentNames:"Debbie Bensinger, Greg Bensinger", allergies:"", ensemble:"Challaday", startDate:"8/23/2025", classesAttended:18, totalTuition:1125, tuitionPaid:937.50, tuitionOwed:187.50, invoiceStatus:"Unpaid", active:true, service:"Band Coaching", parentEmail:"deb.bensinger@gmail.com", phone:"", emergencyContact:"" },
+  { name:"Kyle Rosenbluth", ageGrade:"9th", instrument:"Bass", skillLevel:"", parentNames:"Kate Rosenbluth, Mike Rosenbluth", allergies:"", ensemble:"Challaday", startDate:"8/23/2025", classesAttended:18, totalTuition:1125, tuitionPaid:1250, tuitionOwed:-125, invoiceStatus:"Overpaid", active:true, service:"Band Coaching", parentEmail:"mikejr@gmail.com", phone:"", emergencyContact:"" },
+  { name:"Micah Lawson", ageGrade:"9th", instrument:"Vocals/guitar", skillLevel:"", parentNames:"Erica Lawson, Jeff Lawson", allergies:"", ensemble:"Challaday", startDate:"8/23/2025", classesAttended:18, totalTuition:1125, tuitionPaid:562.50, tuitionOwed:562.50, invoiceStatus:"Drafted", active:true, service:"Band Coaching", parentEmail:"erica.lawson@ucsf.edu", phone:"", emergencyContact:"" },
+  { name:"Elliot Pollack", ageGrade:"9th", instrument:"Vocals/keys", skillLevel:"", parentNames:"Jason Pollack, Laurie Brown", allergies:"", ensemble:"Challaday", startDate:"8/23/2025", classesAttended:18, totalTuition:1125, tuitionPaid:1062.50, tuitionOwed:62.50, invoiceStatus:"Paid", active:true, service:"Band Coaching", parentEmail:"jason_pollack@hotmail.com", phone:"", emergencyContact:"" },
+  { name:"Micah Lawson Private", ageGrade:"", instrument:"Guitar", skillLevel:"", parentNames:"Erica Lawson, Jeff Lawson", allergies:"", ensemble:"Private Lessons", startDate:"8/23/2025", classesAttended:13, totalTuition:1625, tuitionPaid:1250, tuitionOwed:375, invoiceStatus:"Drafted", active:true, service:"Private Instruction", parentEmail:"erica.lawson@ucsf.edu", phone:"", emergencyContact:"" }
+];
+
+const RATES = [
+  { client:"Sonya Cheris", rate:62.50 },
+  { client:"Liam Hogan", rate:62.50 },
+  { client:"Rea Horgan", rate:62.50 },
+  { client:"Louis Munck", rate:62.50 },
+  { client:"Hendrix Adair", rate:62.50 },
+  { client:"Anya Jayaraman", rate:62.50 },
+  { client:"Sai Jayaraman", rate:62.50 },
+  { client:"Max Flanagan", rate:62.50 },
+  { client:"Ayton Price", rate:62.50 },
+  { client:"Mason Wong", rate:37.50 },
+  { client:"Mia Wong", rate:37.50 },
+  { client:"Sammy Fishkin", rate:62.50 },
+  { client:"George Robbins", rate:62.50 },
+  { client:"Adam Bensinger", rate:62.50 },
+  { client:"Kyle Rosenbluth", rate:62.50 },
+  { client:"Micah Lawson", rate:62.50 },
+  { client:"Elliot Pollack", rate:62.50 },
+  { client:"Micah Lawson Private", rate:125.00 }
+];
+
+const PAYMENTS = [
+  { client:"Sai Jayaraman", date:"4/23/2025", amount:250, method:"Venmo" },
+  { client:"Anya Jayaraman", date:"5/4/2025", amount:125, method:"venmo" },
+  { client:"Ayton Price", date:"5/28/2025", amount:250, method:"PayPal" },
+  { client:"Gerardo Rodriguez", date:"5/28/2025", amount:150, method:"Zelle" },
+  { client:"Hendrix Adair", date:"5/28/2025", amount:250, method:"Venmo" },
+  { client:"Liam Hogan", date:"5/28/2025", amount:50, method:"" },
+  { client:"Louis Munck", date:"5/28/2025", amount:500, method:"" },
+  { client:"Max Flanagan", date:"5/28/2025", amount:375, method:"" },
+  { client:"Rea Horgan", date:"5/28/2025", amount:250, method:"" },
+  { client:"Sonya Cheris", date:"5/28/2025", amount:750, method:"" },
+  { client:"Rea Horgan", date:"6/21/2025", amount:250, method:"paypal" },
+  { client:"Rea Horgan", date:"7/3/2025", amount:62.50, method:"paypal" },
+  { client:"Anya Jayaraman", date:"6/25/2025", amount:187.50, method:"Zelle" },
+  { client:"Ayton Price", date:"7/10/2025", amount:187.50, method:"Zelle" },
+  { client:"Hendrix Adair", date:"7/10/2025", amount:250, method:"venmo" },
+  { client:"liam hogan", date:"7/10/2025", amount:450, method:"venmo" },
+  { client:"Louis Munck", date:"7/10/2025", amount:250, method:"venmo" },
+  { client:"Max Flanagan", date:"7/10/2025", amount:187.50, method:"Zelle" },
+  { client:"Sai Jayaraman", date:"6/25/2025", amount:250, method:"Zelle" },
+  { client:"Sonya Cheris", date:"7/10/2025", amount:250, method:"Zelle" },
+  { client:"Sammy Fishkin", date:"8/31/2025", amount:250, method:"Zelle" },
+  { client:"Adam Bensinger", date:"9/1/2025", amount:250, method:"Zelle" },
+  { client:"Kyle Rosenbluth", date:"9/1/2025", amount:250, method:"Zelle" },
+  { client:"Micah Lawson", date:"9/1/2025", amount:250, method:"Zelle" },
+  { client:"Sammy Fishkin", date:"9/1/2025", amount:250, method:"" },
+  { client:"George Robbins", date:"9/2/2025", amount:250, method:"Zelle" },
+  { client:"Elliot Pollack", date:"9/22/2025", amount:250, method:"Zelle" },
+  { client:"Mason Wong", date:"9/26/2025", amount:225, method:"Venmo" },
+  { client:"Anya Jayaraman", date:"10/2/2025", amount:187.50, method:"Venmo" },
+  { client:"Liam Hogan", date:"10/2/2025", amount:187.50, method:"Venmo" },
+  { client:"Louis Munck", date:"10/2/2025", amount:187.50, method:"Venmo" },
+  { client:"Sai Jayaraman", date:"10/2/2025", amount:250, method:"Venmo" },
+  { client:"Max Flanagan", date:"10/3/2025", amount:187.50, method:"Venmo" },
+  { client:"Ayton Price", date:"10/4/2025", amount:187.50, method:"zelle" },
+  { client:"Rea Horgan", date:"10/7/2025", amount:312.50, method:"Venmo" },
+  { client:"Hendrix Adair", date:"10/17/2025", amount:125, method:"Venmo" },
+  { client:"Micah Lawson Private", date:"10/25/2025", amount:250, method:"zelle" },
+  { client:"Adam Bensinger", date:"11/2/2025", amount:250, method:"Venmo" },
+  { client:"Kyle Rosenbluth", date:"11/2/2025", amount:250, method:"Venmo" },
+  { client:"Elliot Pollack", date:"11/3/2025", amount:125, method:"zelle" },
+  { client:"George Robbins", date:"11/8/2025", amount:500, method:"zelle" },
+  { client:"Elliot Pollack", date:"11/10/2025", amount:62.50, method:"zelle" },
+  { client:"Elliot Pollack", date:"11/17/2025", amount:62.50, method:"zelle" },
+  { client:"Elliot Pollack", date:"11/24/2025", amount:62.50, method:"zelle" },
+  { client:"Micah Lawson Private", date:"12/1/2025", amount:625, method:"zelle" },
+  { client:"Micah Lawson", date:"12/1/2025", amount:312.50, method:"zelle" },
+  { client:"Elliot Pollack", date:"12/1/2025", amount:62.50, method:"zelle" },
+  { client:"Sammy Fishkin", date:"12/15/2025", amount:500, method:"zelle" },
+  { client:"Elliot Pollack", date:"12/15/2025", amount:62.50, method:"zelle" },
+  { client:"Elliot Pollack", date:"1/5/2026", amount:62.50, method:"zelle" },
+  { client:"Louis Munck", date:"12/1/2025", amount:187.50, method:"Venmo" },
+  { client:"Adam Bensinger", date:"12/1/2025", amount:62.50, method:"Venmo" },
+  { client:"Liam Hogan", date:"12/1/2025", amount:250, method:"Venmo" },
+  { client:"Kyle Rosenbluth", date:"12/2/2025", amount:250, method:"Venmo" },
+  { client:"Mason Wong", date:"12/2/2025", amount:150, method:"Venmo" },
+  { client:"Mason Wong", date:"12/2/2025", amount:150, method:"Venmo" },
+  { client:"Max Flanagan", date:"12/4/2025", amount:250, method:"Venmo" },
+  { client:"Hendrix Adair", date:"12/5/2025", amount:312.50, method:"Venmo" },
+  { client:"Sai Jayaraman", date:"12/13/2025", amount:187.50, method:"Venmo" },
+  { client:"Anya Jayaraman", date:"12/13/2025", amount:187.50, method:"Venmo" },
+  { client:"Rea Horgan", date:"12/7/2025", amount:250, method:"paypal" },
+  { client:"Anya Jayaraman", date:"12/13/2025", amount:187.50, method:"Venmo" },
+  { client:"Sai Jayaraman", date:"12/13/2025", amount:187.50, method:"Venmo" },
+  { client:"Kyle Rosenbluth", date:"1/1/2026", amount:250, method:"venmo" },
+  { client:"Louis Munck", date:"1/12/2026", amount:187.50, method:"venmo" },
+  { client:"Liam Hogan", date:"1/12/2026", amount:250, method:"venmo" },
+  { client:"adam Bensinger", date:"1/12/2026", amount:375, method:"venmo" },
+  { client:"sai Jayaraman", date:"1/12/2026", amount:125, method:"" },
+  { client:"Anya Jayaraman", date:"1/12/2026", amount:125, method:"" },
+  { client:"mason Wong", date:"1/12/2026", amount:225, method:"" },
+  { client:"Kyle Rosenbluth", date:"2/1/2026", amount:250, method:"" },
+  { client:"Elliot Pollack", date:"2/9/2026", amount:62.50, method:"" },
+  { client:"Elliot Pollack", date:"2/2/2026", amount:62.50, method:"" },
+  { client:"Elliot Pollack", date:"1/26/2026", amount:62.50, method:"" },
+  { client:"Ayton Price", date:"1/14/2026", amount:375, method:"" },
+  { client:"Elliot Pollack", date:"1/14/2026", amount:62.50, method:"" },
+  { client:"Micah Lawson Private", date:"1/12/2026", amount:375, method:"" },
+  { client:"Elliot Pollack", date:"1/5/2026", amount:62.50, method:"" }
+];
+
+/* --- ATTENDANCE GRIDS --- */
+
+// Adv. Groove Ensemble (2:00 Sunday)
+// Members: Anya Jayaraman, Liam Hogan, Louis Munck, Rea Horgan, Sonya Cheris, Thomas Kroll
+// NOTE: Anya appears here but Database tab says she's in Beg. Groove Ensemble
+const ATT_ADV = {
+  members: ["Anya Jayaraman","Liam Hogan","Louis Munck","Rea Horgan","Sonya Cheris","Thomas Kroll"],
+  dates: [
+    ["3/8/2025",   ["","","1","","1","1"]],
+    ["3/15/2025",  ["","","1","","1","1"]],
+    ["3/22/2025",  ["","","1","1","1",""]],
+    ["4/12/2025",  ["","1","1","1","1","1"]],
+    ["4/19/2025",  ["","1","1","1","1",""]],
+    ["4/26/2025",  ["","1","1","1","1","1"]],
+    ["5/3/2025",   ["1","1","1","1","1","1"]],
+    ["5/10/2025",  ["1","","1","1","","1"]],
+    ["5/17/2025",  ["","","1","1","",""]],
+    ["5/24/2025",  ["1","1","1","1","1","1"]],
+    ["5/31/2025",  ["","1","1","1","1",""]],
+    ["6/7/2025",   ["","1","1","","1",""]],
+    ["6/14/2025",  ["1","1","","","1",""]],
+    ["6/21/2025",  ["1","","","","1",""]],
+    ["7/26/2025",  ["","","","1","1",""]],
+    ["8/16/2025",  ["","","","1","1",""]],
+    ["9/7/2025",   ["1","1","1","1","",""]],
+    ["9/14/2025",  ["1","1","1","1","",""]],
+    ["9/21/2025",  ["1","1","1","1","",""]],
+    ["11/2/2025",  ["1","1","1","1","",""]],
+    ["11/9/2025",  ["1","1","1","1","",""]],
+    ["11/16/2025", ["","1","1","1","",""]],
+    ["11/23/2025", ["","","","","",""]],
+    ["11/30/2025", ["1","1","0","1","",""]],
+    ["12/7/2025",  ["1","1","1","1","",""]],
+    ["12/14/2025", ["","1","1","1","",""]],
+    ["1/4/2026",   ["1","1","","1","",""]],
+    ["1/11/2026",  ["","1","1","1","",""]],
+    ["1/24/2026",  ["1","1","","1","",""]],
+    ["2/1/2026",   ["","1","1","1","",""]],
+    ["2/8/2026",   ["1","","1","1","",""]],
+    ["2/15/2026",  ["1","1","1","1","",""]],
+    ["2/23/2026",  ["1","1","1","1","",""]]
+  ]
+};
+
+// Beg. Groove Ensemble
+const ATT_BEG = {
+  members: ["Ayton Price","Hendrix Adair","Max Flanagan","Sai Jayaraman"],
+  dates: [
+    ["4/19/2025",  ["1","1","1","1"]],
+    ["4/26/2025",  ["1","1","1","1"]],
+    ["5/3/2025",   ["1","1","1","1"]],
+    ["5/10/2025",  ["1","1","1","1"]],
+    ["5/17/2025",  ["1","1","1",""]],
+    ["5/24/2025",  ["1","1","1","1"]],
+    ["5/31/2025",  ["1","1","1","1"]],
+    ["6/7/2025",   ["","","",""]],
+    ["6/14/2025",  ["","1","1","1"]],
+    ["6/21/2025",  ["","","1","1"]],
+    ["9/6/2025",   ["1","1","1","1"]],
+    ["9/13/2025",  ["1","","1","1"]],
+    ["9/20/2025",  ["1","1","1","1"]],
+    ["10/4/2025",  ["","","1",""]],
+    ["11/1/2025",  ["1","1","1","1"]],
+    ["11/8/2025",  ["1","1","","1"]],
+    ["11/15/2025", ["1","1","",""]],
+    ["11/22/2025", ["","1","1","1"]],
+    ["11/29/2025", ["1","1","1","1"]],
+    ["12/6/2025",  ["","","",""]],
+    ["12/13/2025", ["1","1","1","1"]],
+    ["12/21/2025", ["1","","1","1"]],
+    ["1/17/2026",  ["1","1","","1"]],
+    ["2/1/2026",   ["1","1","1","1"]],
+    ["2/7/2026",   ["1","1","","1"]],
+    ["2/22/2026",  ["1","1","","1"]]
+  ]
+};
+
+// Challaday
+const ATT_CHAL = {
+  members: ["Sammy Fishkin","George Robbins","Adam Bensinger","Kyle Rosenbluth","Elliot Pollack","Micah Lawson"],
+  dates: [
+    ["8/25/2025",  ["1","1","1","1","1","1"]],
+    ["9/1/2025",   ["1","1","1","1","1","1"]],
+    ["9/8/2025",   ["1","1","1","1","1","1"]],
+    ["9/15/2025",  ["1","1","1","1","1","1"]],
+    ["10/27/2025", ["1","1","1","1","1","1"]],
+    ["11/3/2025",  ["1","1","1","1","1","1"]],
+    ["11/10/2025", ["1","1","1","1","1","1"]],
+    ["11/17/2025", ["1","1","1","1","1","1"]],
+    ["11/24/2025", ["1","1","1","1","1","1"]],
+    ["12/1/2025",  ["1","1","1","1","1","1"]],
+    ["12/8/2025",  ["1","1","1","1","1","1"]],
+    ["12/15/2025", ["1","1","1","1","1","1"]],
+    ["1/5/2026",   ["1","1","1","1","1","1"]],
+    ["1/12/2026",  ["1","1","1","1","1","1"]],
+    ["1/26/2026",  ["1","1","1","1","1","1"]],
+    ["2/2/2026",   ["1","1","1","1","1","1"]],
+    ["2/9/2026",   ["1","1","1","1","1","1"]],
+    ["2/23/2026",  ["1","1","1","1","1","1"]]
+  ]
+};
+
+// Private Lessons
+// Members: Micah Lawson Private, Mason+Mia Wong (shared column)
+const ATT_PRIV = {
+  members: ["Micah Lawson Private","Mason Wong","Mia Wong"],
+  dates: [
+    ["9/18/2025",  ["1","1","1"]],
+    ["9/25/2025",  ["1","1","1"]],
+    ["10/2/2025",  ["1","1","1"]],
+    ["10/23/2025", ["1","1","1"]],
+    ["11/6/2025",  ["1","1","1"]],
+    ["11/13/2025", ["1","1","1"]],
+    ["11/19/2025", ["0","0","0"]],
+    ["11/27/2025", ["1","1","1"]],
+    ["12/4/2025",  ["1","1","1"]],
+    ["12/3/2025",  ["1","1","1"]],
+    ["12/10/2025", ["1","1","1"]],
+    ["12/17/2025", ["0","0","0"]],
+    ["1/6/2026",   ["0","0","0"]],
+    ["1/28/2026",  ["1","",""]],
+    ["1/14/2026",  ["1","1","1"]],
+    ["2/12/2026",  ["1","1","1"]]
+  ]
+};
+
+/* =========================================================================
+   ENSEMBLE DEFINITIONS
+   ========================================================================= */
+const ENSEMBLES = {
+  "adv-groove-ensemble": { name: "Adv. Groove Ensemble", schedule: "Sundays 2:00-4:30 PM", location: "Studio S, Oakland" },
+  "beg-groove-ensemble": { name: "Beg. Groove Ensemble", schedule: "Saturdays 10:00 AM-12:30 PM", location: "Studio S, Oakland" },
+  "challaday": { name: "Challaday", schedule: "Mondays 4:00-5:30 PM", location: "Congregation Beth El, Berkeley" },
+  "private": { name: "Private Lessons", schedule: "", location: "" }
+};
+
+/* Map ensemble display names to programIds */
+function ensembleToProgramId(ensName) {
+  const m = {
+    "Adv. Groove Ensemble": "adv-groove-ensemble",
+    "Beg. Groove Ensemble": "beg-groove-ensemble",
+    "Challaday": "challaday",
+    "Private Lessons": "private"
+  };
+  return m[ensName] || ensName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+}
+
+/* =========================================================================
+   MIGRATION LOGIC
+   ========================================================================= */
+
+let DRY_RUN = false;
+
+async function fbWrite(path, val) {
+  if (DRY_RUN) { logInfo(`[DRY] Would write ${path}`); return; }
+  await dbRef(path).set(val);
+}
+
+async function fbUpdate(path, val) {
+  if (DRY_RUN) { logInfo(`[DRY] Would update ${path}`); return; }
+  await dbRef(path).update(val);
+}
+
+async function createAuth(email, password) {
+  if (DRY_RUN) { logInfo(`[DRY] Would create auth: ${email}`); return 'dry-run-uid'; }
+  try {
+    const cred = await secondaryApp.auth().createUserWithEmailAndPassword(email, password);
+    await secondaryApp.auth().signOut();
+    return cred.user.uid;
+  } catch(e) {
+    if (e.code === 'auth/email-already-in-use') {
+      try {
+        const cred = await secondaryApp.auth().signInWithEmailAndPassword(email, password);
+        const uid = cred.user.uid;
+        await secondaryApp.auth().signOut();
+        return uid;
+      } catch(e2) { return null; }
+    }
+    return null;
+  }
+}
+
+/* ---- Name normalization for payment matching ---- */
+function normName(n) { return n.trim().toLowerCase().replace(/\s+/g, ' '); }
+
+function findStudentForPayment(clientName) {
+  const cn = normName(clientName);
+  // Exact match first
+  for (const s of STUDENTS) {
+    if (normName(s.name) === cn) return s.name;
+  }
+  // "Micah Lawson Private" handled above
+  // Special case: "Gerardo Rodriguez" not in STUDENTS
+  return null;
+}
+
+async function runDryRun() {
+  DRY_RUN = true;
+  logEl().innerHTML = '';
+  log('=== DRY RUN — No data will be written ===\n', 'log-warn');
+  await doMigration();
+  DRY_RUN = false;
+}
+
+async function runMigration(reset) {
+  DRY_RUN = false;
+  logEl().innerHTML = '';
+  if (reset) {
+    logWarn('Resetting all student data before migration...');
+    await dbRef('students').remove();
+    await dbRef('meta/accessCodes').remove();
+    await dbRef('meta/parentAccessCodes').remove();
+    await dbRef('parents').remove();
+    logOk('Reset complete');
+  }
+  log('=== LIVE MIGRATION — Writing to Firebase ===\n', 'log-info');
+  await doMigration();
+}
+
+async function doMigration() {
+  const t0 = Date.now();
+  let studentCount = 0, programCount = 0, attendanceCount = 0, paymentCount = 0, authCount = 0, parentCount = 0;
+
+  // Build rate lookup
+  const rateMap = {};
+  RATES.forEach(r => { rateMap[r.client] = r.rate; });
+
+  // Build student name -> key lookup, merging Micah Lawson + Micah Lawson Private
+  const studentMap = {}; // name -> { key, data }
+  const processedKeys = new Set();
+
+  log('=== STEP 1: MAP STUDENTS ===\n');
+
+  for (const s of STUDENTS) {
+    // Skip the "Micah Lawson Private" row — we merge it into "Micah Lawson"
+    if (s.name === "Micah Lawson Private") continue;
+
+    const key = studentKey(s.name);
+    if (processedKeys.has(key)) {
+      logWarn(`Duplicate key ${key} for ${s.name} — skipping`);
+      continue;
+    }
+    processedKeys.add(key);
+
+    const programId = ensembleToProgramId(s.ensemble);
+    const rate = rateMap[s.name] || 62.50;
+    const accessCode = key.slice(0, 8) + (Math.floor(Math.random()*90)+10);
+
+    const profile = {
+      name: s.name,
+      instrument: s.instrument.toLowerCase(),
+      startDate: sheetDate(s.startDate),
+      accessCode: accessCode,
+      authUid: null,
+      parentName: s.parentNames,
+      parentEmail: s.parentEmail,
+      parentAuthUid: null,
+      parentAccessCode: null,
+      ageGrade: s.ageGrade || '',
+      skillLevel: s.skillLevel || '',
+      allergies: s.allergies || '',
+      phone: s.phone || '',
+      emergencyContact: s.emergencyContact || '',
+      active: s.active !== false
+    };
+
+    const programs = {};
+    // Primary program
+    if (programId === 'private') {
+      programs.private = {
+        type: 'private',
+        name: 'Private Lessons',
+        ensembleId: null,
+        rate: rate,
+        lessonDay: null,
+        lessonTime: null
+      };
+    } else {
+      programs[programId] = {
+        type: 'ensemble',
+        name: s.ensemble,
+        ensembleId: programId,
+        rate: rate,
+        lessonDay: null,
+        lessonTime: null
+      };
+    }
+
+    // Check if this student also has private lessons (Micah Lawson dual enrollment)
+    if (s.name === "Micah Lawson") {
+      const privRate = rateMap["Micah Lawson Private"] || 125;
+      programs.private = {
+        type: 'private',
+        name: 'Private Lessons',
+        ensembleId: null,
+        rate: privRate,
+        lessonDay: null,
+        lessonTime: null
+      };
+      logInfo(`Micah Lawson: dual enrollment — Challaday ($${rate}) + Private ($${privRate})`);
+    }
+
+    studentMap[s.name] = { key, profile, programs };
+    if (s.name === "Micah Lawson") {
+      studentMap["Micah Lawson Private"] = { key, profile, programs }; // alias for payment matching
+    }
+
+    logOk(`${s.name} -> ${key} [${programId}] $${rate}${s.active === false ? ' (INACTIVE)' : ''}`);
+    studentCount++;
+  }
+
+  // Handle edge cases: Thomas Kroll (in attendance, not in Database)
+  const tkKey = 'thomaskroll';
+  studentMap["Thomas Kroll"] = {
+    key: tkKey,
+    profile: {
+      name: "Thomas Kroll", instrument: "unknown", startDate: "2025-03-08",
+      accessCode: 'thomaskr' + (Math.floor(Math.random()*90)+10),
+      authUid: null, parentName: "", parentEmail: "", parentAuthUid: null, parentAccessCode: null,
+      ageGrade: "", skillLevel: "", allergies: "", phone: "", emergencyContact: "", active: false
+    },
+    programs: {
+      "adv-groove-ensemble": { type: "ensemble", name: "Adv. Groove Ensemble", ensembleId: "adv-groove-ensemble", rate: 62.50, lessonDay: null, lessonTime: null }
+    }
+  };
+  processedKeys.add(tkKey);
+  logWarn('Thomas Kroll: minimal record (attendance only, not in Database tab)');
+  studentCount++;
+
+  // Handle edge case: Gerardo Rodriguez (payments only)
+  const grKey = 'gerardorodriguez';
+  studentMap["Gerardo Rodriguez"] = {
+    key: grKey,
+    profile: {
+      name: "Gerardo Rodriguez", instrument: "unknown", startDate: "2025-05-28",
+      accessCode: 'gerardor' + (Math.floor(Math.random()*90)+10),
+      authUid: null, parentName: "", parentEmail: "", parentAuthUid: null, parentAccessCode: null,
+      ageGrade: "", skillLevel: "", allergies: "", phone: "", emergencyContact: "", active: false
+    },
+    programs: {}
+  };
+  processedKeys.add(grKey);
+  logWarn('Gerardo Rodriguez: minimal record (payment only, not in Database tab)');
+  studentCount++;
+
+  log(`\n=== STEP 2: WRITE STUDENT RECORDS ===\n`);
+
+  // Write all student profiles and programs
+  for (const [name, { key, profile, programs }] of Object.entries(studentMap)) {
+    // Skip aliases (Micah Lawson Private)
+    if (name === "Micah Lawson Private") continue;
+
+    // Create auth account
+    const authEmail = key + '@professoroffunk.app';
+    const authUid = await createAuth(authEmail, profile.accessCode + '!PoF');
+    if (authUid) {
+      profile.authUid = authUid;
+      authCount++;
+    }
+
+    // Preserve existing lessons, practice, milestones, resources if they exist
+    let existing = null;
+    if (!DRY_RUN) {
+      const snap = await dbRef('students/' + key).once('value');
+      existing = snap.val();
+    }
+
+    const studentData = {
+      profile: profile,
+      programs: programs,
+      attendance: {},
+      payments: {},
+      lessons: (existing && existing.lessons) || {},
+      practice: (existing && existing.practice) || {},
+      milestones: (existing && existing.milestones) || {},
+      resources: (existing && existing.resources) || {}
+    };
+
+    await fbWrite('students/' + key, studentData);
+    await fbWrite('meta/accessCodes/' + profile.accessCode, key);
+
+    programCount += Object.keys(programs).length;
+    logOk(`Wrote ${key} with ${Object.keys(programs).length} program(s)`);
+  }
+
+  log(`\n=== STEP 3: MIGRATE ATTENDANCE ===\n`);
+
+  // Process each attendance grid
+  const grids = [
+    { data: ATT_ADV, label: "Adv. Groove Ensemble" },
+    { data: ATT_BEG, label: "Beg. Groove Ensemble" },
+    { data: ATT_CHAL, label: "Challaday" },
+    { data: ATT_PRIV, label: "Private Lessons" }
+  ];
+
+  for (const grid of grids) {
+    logInfo(`Processing ${grid.label} attendance...`);
+    for (let mi = 0; mi < grid.data.members.length; mi++) {
+      const memberName = grid.data.members[mi];
+      const sm = studentMap[memberName];
+      if (!sm) {
+        logWarn(`  ${memberName}: not found in student map — skipping`);
+        continue;
+      }
+
+      // Determine which programId to store attendance under
+      // Use the student's enrolled program from Database tab, NOT the grid label
+      let programId;
+      const enrolledPrograms = Object.keys(sm.programs);
+      if (memberName === "Micah Lawson Private") {
+        programId = "private";
+      } else if (memberName === "Micah Lawson" && grid.label === "Challaday") {
+        programId = "challaday";
+      } else if (enrolledPrograms.length === 1) {
+        programId = enrolledPrograms[0];
+      } else {
+        // For dual-enrollment, match to grid
+        programId = ensembleToProgramId(grid.label);
+      }
+
+      let count = 0;
+      for (const [dateStr, vals] of grid.data.dates) {
+        const v = vals[mi];
+        if (v === "" || v === undefined) continue; // skip empty = not enrolled yet
+        const fbDate = sheetDate(dateStr);
+        if (!fbDate) continue;
+        const present = (v === "1" || v === "3"); // "3" treated as present (data anomaly)
+        await fbWrite(`students/${sm.key}/attendance/${programId}/${fbDate}`, { present });
+        attendanceCount++;
+        count++;
+      }
+      logOk(`  ${memberName} -> ${sm.key}/attendance/${programId}: ${count} records`);
+    }
+  }
+
+  log(`\n=== STEP 4: MIGRATE PAYMENTS ===\n`);
+
+  // Group payments by student
+  const paymentsByStudent = {};
+  const orphanedPayments = [];
+
+  for (const p of PAYMENTS) {
+    const matchName = findStudentForPayment(p.client);
+    if (!matchName) {
+      // Try special case: "Gerardo Rodriguez"
+      if (normName(p.client) === 'gerardo rodriguez') {
+        const key = 'gerardorodriguez';
+        if (!paymentsByStudent[key]) paymentsByStudent[key] = [];
+        paymentsByStudent[key].push(p);
+        continue;
+      }
+      logWarn(`Orphaned payment: ${p.client} $${p.amount} on ${p.date}`);
+      orphanedPayments.push(p);
+      continue;
+    }
+    const sm = studentMap[matchName];
+    if (!sm) {
+      logWarn(`No student map entry for ${matchName}`);
+      continue;
+    }
+    if (!paymentsByStudent[sm.key]) paymentsByStudent[sm.key] = [];
+    paymentsByStudent[sm.key].push({ ...p, resolvedName: matchName });
+  }
+
+  for (const [key, payments] of Object.entries(paymentsByStudent)) {
+    for (const p of payments) {
+      const payId = uid();
+      const fbDate = sheetDate(p.date) || new Date().toISOString().slice(0, 10);
+      const payData = {
+        date: fbDate,
+        amount: p.amount,
+        method: normMethod(p.method),
+        note: '',
+        programId: null
+      };
+      // Tag Micah Lawson Private payments with programId
+      if (p.resolvedName === "Micah Lawson Private" || normName(p.client).includes('private')) {
+        payData.programId = 'private';
+      }
+      await fbWrite(`students/${key}/payments/${payId}`, payData);
+      paymentCount++;
+    }
+    logOk(`${key}: ${payments.length} payment(s)`);
+  }
+
+  log(`\n=== STEP 5: CREATE PARENT RECORDS ===\n`);
+
+  // Group students by parent
+  const parentGroups = {};
+  for (const [name, { key, profile }] of Object.entries(studentMap)) {
+    if (name === "Micah Lawson Private") continue;
+    if (!profile.parentName) continue;
+    // Use parent email as parent group key (or name if no email)
+    const pKey = (profile.parentEmail || profile.parentName).split(',')[0].trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!parentGroups[pKey]) parentGroups[pKey] = { parentName: profile.parentName, parentEmail: profile.parentEmail, children: [] };
+    parentGroups[pKey].children.push(key);
+  }
+
+  for (const [pKey, group] of Object.entries(parentGroups)) {
+    const parentId = pKey.slice(0, 20);
+    const parentCode = parentId + '-parent';
+    const parentAuthUid = await createAuth(parentId + '@parent.professoroffunk.app', parentCode + '!PoF');
+
+    const parentRecord = {
+      profile: {
+        name: group.parentName,
+        email: group.parentEmail,
+        accessCode: parentCode,
+        authUid: parentAuthUid || null
+      },
+      children: {}
+    };
+    group.children.forEach(ck => { parentRecord.children[ck] = true; });
+
+    await fbWrite('parents/' + parentId, parentRecord);
+    await fbWrite('meta/parentAccessCodes/' + parentCode, parentId);
+
+    // Update student profiles with parent info
+    for (const ck of group.children) {
+      await fbWrite(`students/${ck}/profile/parentAuthUid`, parentAuthUid || null);
+      await fbWrite(`students/${ck}/profile/parentAccessCode`, parentCode);
+    }
+
+    logOk(`Parent: ${group.parentName} -> ${parentId} (${group.children.length} children: ${group.children.join(', ')})`);
+    parentCount++;
+  }
+
+  log(`\n=== STEP 6: WRITE ENSEMBLES & META ===\n`);
+
+  // Write/update ensemble records
+  for (const [ensId, ensInfo] of Object.entries(ENSEMBLES)) {
+    if (ensId === 'private') continue; // Private isn't an ensemble
+    // Find members for this ensemble
+    const members = [];
+    for (const [name, { key, programs }] of Object.entries(studentMap)) {
+      if (name === "Micah Lawson Private") continue;
+      if (programs[ensId]) members.push(name);
+    }
+
+    // Preserve existing repertoire and assignments
+    let existing = null;
+    if (!DRY_RUN) {
+      const snap = await dbRef('ensembles/' + ensId).once('value');
+      existing = snap.val();
+    }
+
+    const ensData = {
+      info: {
+        name: ensInfo.name,
+        schedule: ensInfo.schedule,
+        location: ensInfo.location,
+        members: members
+      },
+      repertoire: (existing && existing.repertoire) || [],
+      assignments: (existing && existing.assignments) || []
+    };
+    await fbWrite('ensembles/' + ensId, ensData);
+    logOk(`Ensemble: ${ensInfo.name} — ${members.length} members`);
+  }
+
+  // Write meta/rates
+  await fbWrite('meta/rates', { defaultBand: 62.50, defaultPrivate: 125.00 });
+  logOk('Wrote meta/rates: band=$62.50, private=$125.00');
+
+  log(`\n=== STEP 7: CLEANUP OLD FIELDS ===\n`);
+
+  if (!DRY_RUN) {
+    // Remove old fields from student records
+    for (const [name, { key }] of Object.entries(studentMap)) {
+      if (name === "Micah Lawson Private") continue;
+      const cleanups = {
+        'billing': null,
+        'paymentStatus': null,
+        'lastLesson': null,
+        'nextLesson': null,
+        'profile/program': null,
+        'profile/privateRate': null,
+        'profile/groupRate': null,
+        'profile/ensembleId': null,
+        'profile/lessonDay': null,
+        'profile/lessonTime': null,
+        'profile/rate': null
+      };
+      for (const [field, val] of Object.entries(cleanups)) {
+        try { await dbRef(`students/${key}/${field}`).remove(); } catch(e) {}
+      }
+    }
+    logOk('Removed old fields: billing, paymentStatus, lastLesson, nextLesson, profile.program/privateRate/groupRate/ensembleId');
+  } else {
+    logInfo('[DRY] Would remove old billing/paymentStatus/lastLesson/nextLesson fields');
+  }
+
+  log(`\n=== STEP 8: VERIFICATION ===\n`);
+
+  // Verify by computing billing for each student and comparing to sheet totals
+  const sheetTotals = {};
+  STUDENTS.forEach(s => {
+    const key = studentKey(s.name === "Micah Lawson Private" ? "Micah Lawson" : s.name);
+    if (!sheetTotals[key]) sheetTotals[key] = { tuition: 0, paid: 0 };
+    sheetTotals[key].tuition += s.totalTuition;
+    sheetTotals[key].paid += s.tuitionPaid;
+  });
+
+  if (!DRY_RUN) {
+    let verified = 0, mismatches = 0;
+    for (const [key, expected] of Object.entries(sheetTotals)) {
+      const snap = await dbRef('students/' + key).once('value');
+      const student = snap.val();
+      if (!student) { logErr(`  ${key}: NOT FOUND in Firebase`); mismatches++; continue; }
+
+      // Compute tuition from attendance * rate
+      let totalTuition = 0;
+      const progs = student.programs || {};
+      const att = student.attendance || {};
+      for (const [pid, prog] of Object.entries(progs)) {
+        const dates = att[pid] || {};
+        const attended = Object.values(dates).filter(a => a.present).length;
+        totalTuition += attended * prog.rate;
+      }
+
+      // Compute total paid
+      const payments = student.payments || {};
+      const totalPaid = Object.values(payments).reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      const tuitionMatch = Math.abs(totalTuition - expected.tuition) < 0.01;
+      const paidMatch = Math.abs(totalPaid - expected.paid) < 0.01;
+
+      if (tuitionMatch && paidMatch) {
+        logOk(`  ${key}: tuition=$${totalTuition} paid=$${totalPaid} ✓`);
+        verified++;
+      } else {
+        if (!tuitionMatch) logErr(`  ${key}: tuition=$${totalTuition} (expected $${expected.tuition})`);
+        if (!paidMatch) logErr(`  ${key}: paid=$${totalPaid} (expected $${expected.paid})`);
+        mismatches++;
+      }
+    }
+    log(`\nVerification: ${verified} matched, ${mismatches} mismatches`, mismatches > 0 ? 'log-warn' : 'log-ok');
+  }
+
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  log(`\n${'='.repeat(50)}`, '');
+  log(`Migration ${DRY_RUN ? '(DRY RUN) ' : ''}complete in ${elapsed}s`, 'log-ok');
+  log(`  Students: ${studentCount}`, '');
+  log(`  Programs: ${programCount}`, '');
+  log(`  Attendance records: ${attendanceCount}`, '');
+  log(`  Payment records: ${paymentCount}`, '');
+  log(`  Auth accounts: ${authCount}`, '');
+  log(`  Parent records: ${parentCount}`, '');
+  if (orphanedPayments.length) log(`  Orphaned payments: ${orphanedPayments.length}`, 'log-warn');
+}
+</script>
+</body>
+</html>
