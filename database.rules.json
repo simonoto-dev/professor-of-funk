@@ -14,6 +14,11 @@
           },
           "practice": {
             ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1' || auth.uid === data.parent().child('profile/authUid').val()"
+          },
+          "payments": {
+            "$paymentId": {
+              ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1' || (auth.uid === data.parent().parent().child('profile/parentAuthUid').val() && ((newData.exists() && newData.child('status').val() === 'pending') || (!newData.exists() && data.child('status').val() === 'pending')))"
+            }
           }
         }
       },
@@ -38,7 +43,18 @@
         ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'",
         "$parentId": {
           ".read": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1' || auth.uid === data.child('profile/authUid').val()",
-          ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'"
+          ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'",
+          "profile": {
+            "accessCode": {
+              ".read": true
+            }
+          }
+        }
+      },
+      "userProfiles": {
+        "$uid": {
+          ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid && !data.exists()"
         }
       },
       "ensembles": {

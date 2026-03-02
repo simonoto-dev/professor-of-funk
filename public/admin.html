@@ -401,6 +401,7 @@ let addingSongTo = null;     // ensemble key, or null
 let assigningSong = null;    // { ensKey, songId, songTitle } or null
 let attendanceProgram = null; // selected program filter for attendance tab
 let customAttendanceDates = new Set(); // extra dates added via date picker
+let showAllAttendanceDates = false; // toggle to show all dates vs last 8
 let lessonStudent = '';      // selected student in Lessons tab
 let addingSongScore = false; // showing add song score form
 let editingItinerary = null; // { studentKey, weekId } being edited, or null
@@ -498,7 +499,7 @@ function fmtDateFull(d) {
   return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function fmtCurrency(n) { return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+function fmtCurrency(n) { return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
@@ -617,9 +618,9 @@ function computeOutstandingBilling(studentKey) {
     if (first.getTime() === last.getTime()) {
       periodLabel = fmtYear(first);
     } else if (first.getFullYear() === last.getFullYear()) {
-      periodLabel = fmt(first) + ' \u2013 ' + fmtYear(last);
+      periodLabel = fmt(first) + ' - ' + fmtYear(last);
     } else {
-      periodLabel = fmtYear(first) + ' \u2013 ' + fmtYear(last);
+      periodLabel = fmtYear(first) + ' - ' + fmtYear(last);
     }
   }
 
@@ -652,50 +653,52 @@ function groupStudentsByParent(studentKeys) {
   return families;
 }
 
-function computeFamilyBilling(studentKeys) {
+function computeFamilyBilling(studentKeys, year, month) {
   const children = [];
   let totalCharges = 0;
+  let totalPreviousBalance = 0;
   let balanceDue = 0;
-  let allDates = [];
+  let totalPaymentsThisMonth = 0;
 
   for (const key of studentKeys) {
     const s = localData.students[key];
     if (!s) continue;
-    const ob = computeOutstandingBilling(key);
-    if (ob.classes.length > 0 || ob.balanceDue !== 0) {
-      // Tag each class with student name for display
-      const taggedClasses = ob.classes.map(c => ({ ...c, studentName: s.profile.name }));
-      children.push({
-        name: s.profile.name,
-        key,
-        classes: taggedClasses,
-        totalCharges: ob.totalCharges,
-        balanceDue: ob.balanceDue
+    const mb = computeMonthlyBilling(key, year, month);
+
+    // Gather individual class dates for this month (for invoice line items)
+    const monthClasses = [];
+    Object.entries(s.programs || {}).forEach(([pid, prog]) => {
+      const attendance = (s.attendance || {})[pid] || {};
+      Object.entries(attendance).forEach(([dateStr, a]) => {
+        if (!a.present) return;
+        const d = new Date(dateStr + 'T12:00:00');
+        if (d.getFullYear() === year && d.getMonth() === month) {
+          monthClasses.push({ date: dateStr, programName: prog.name, rate: a.rateSnapshot || prog.rate || 0 });
+        }
       });
-      totalCharges += ob.totalCharges;
-      balanceDue += ob.balanceDue;
-      allDates.push(...ob.classes.map(c => c.date));
-    }
+    });
+    monthClasses.sort((a, b) => a.date.localeCompare(b.date));
+
+    children.push({
+      name: s.profile.name,
+      key,
+      classes: monthClasses.map(c => ({ ...c, studentName: s.profile.name })),
+      totalCharges: mb.totalThisMonth,
+      paymentsThisMonth: mb.paymentsThisMonth,
+      previousBalance: mb.previousBalance,
+      balanceDue: mb.balanceDue,
+    });
+    totalCharges += mb.totalThisMonth;
+    totalPreviousBalance += mb.previousBalance;
+    totalPaymentsThisMonth += mb.paymentsThisMonth;
+    balanceDue += mb.balanceDue;
   }
 
-  // Combined period label
-  allDates.sort();
-  let periodLabel = '';
-  if (allDates.length > 0) {
-    const first = new Date(allDates[0] + 'T12:00:00');
-    const last = new Date(allDates[allDates.length - 1] + 'T12:00:00');
-    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const fmtYear = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    if (first.getTime() === last.getTime()) {
-      periodLabel = fmtYear(first);
-    } else if (first.getFullYear() === last.getFullYear()) {
-      periodLabel = fmt(first) + ' \u2013 ' + fmtYear(last);
-    } else {
-      periodLabel = fmtYear(first) + ' \u2013 ' + fmtYear(last);
-    }
-  }
+  // Period label for the selected month
+  const monthDate = new Date(year, month, 1);
+  const periodLabel = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-  return { children, totalCharges, balanceDue, periodLabel };
+  return { children, totalCharges, totalPreviousBalance, totalPaymentsThisMonth, balanceDue, periodLabel };
 }
 
 /* ===== INVOICE TEMPLATE =====
@@ -722,7 +725,7 @@ function buildInvoiceHtml(data) {
   // Build line item rows — with child name headers for multi-child families
   let lineItemRows = '';
   if (allClasses.length === 0) {
-    lineItemRows = `<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;font-style:italic;${f}">No outstanding classes</td></tr>`;
+    lineItemRows = `<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;font-style:italic;${f}">No classes this month</td></tr>`;
   } else if (multiChild) {
     for (const child of data.children) {
       if (child.classes.length === 0) continue;
@@ -787,14 +790,19 @@ function buildInvoiceHtml(data) {
 
     <!-- TOTALS -->
     <table style="width:100%;border-collapse:collapse;border-top:2px solid #e5e7eb;" cellpadding="0" cellspacing="0">
+      ${data.previousBalance ? `
       <tr>
-        <td style="padding:6px 12px;font-size:14px;${f}">Total Charges (${allClasses.length} class${allClasses.length !== 1 ? 'es' : ''})</td>
+        <td style="padding:6px 12px;font-size:14px;color:${data.previousBalance > 0 ? '#dc2626' : '#22c55e'};${f}">Previous Balance</td>
+        <td style="padding:6px 12px;font-size:14px;text-align:right;color:${data.previousBalance > 0 ? '#dc2626' : '#22c55e'};${f}">${data.previousBalance < 0 ? '-' : ''}$${Math.abs(data.previousBalance).toFixed(2)}</td>
+      </tr>` : ''}
+      <tr>
+        <td style="padding:6px 12px;font-size:14px;${f}">${data.periodLabel || 'This Month'} (${allClasses.length} class${allClasses.length !== 1 ? 'es' : ''})</td>
         <td style="padding:6px 12px;font-size:14px;text-align:right;${f}">$${data.totalCharges.toFixed(2)}</td>
       </tr>
-      ${data.totalCharges > data.balanceDue && data.balanceDue >= 0 ? `
+      ${data.paymentsThisMonth ? `
       <tr>
-        <td style="padding:6px 12px;font-size:14px;color:#22c55e;${f}">Partial Payment Applied</td>
-        <td style="padding:6px 12px;font-size:14px;color:#22c55e;text-align:right;${f}">-$${(data.totalCharges - data.balanceDue).toFixed(2)}</td>
+        <td style="padding:6px 12px;font-size:14px;color:#22c55e;${f}">Payments Received</td>
+        <td style="padding:6px 12px;font-size:14px;color:#22c55e;text-align:right;${f}">-$${data.paymentsThisMonth.toFixed(2)}</td>
       </tr>` : ''}
       <tr>
         <td colspan="2" style="padding:0;"><div style="border-top:2px solid #1a1a1a;margin-top:8px;"></div></td>
@@ -1395,7 +1403,7 @@ function renderAttendance() {
   });
   customAttendanceDates.forEach(d => dateSet.add(d));
   const allDates = Array.from(dateSet).sort();
-  const dates = allDates.slice(-8); // Show last 8 dates
+  const dates = showAllAttendanceDates ? allDates : allDates.slice(-8);
   const today = localToday();
 
   return h('div', { class: 'pad' },
@@ -1436,7 +1444,11 @@ function renderAttendance() {
           customAttendanceDates.add(dateInput.value);
           render();
         }
-      }}, '+ Add Date')
+      }}, '+ Add Date'),
+      h('button', { class: 'btn-outline' + (showAllAttendanceDates ? ' active' : ''), style: { padding: '5px 12px', fontSize: '12px', marginLeft: 'auto' }, onClick: () => {
+        showAllAttendanceDates = !showAllAttendanceDates;
+        render();
+      }}, showAllAttendanceDates ? 'Last 8' : 'Show All (' + allDates.length + ')')
     ) : '',
 
     // Attendance grid
@@ -1706,19 +1718,35 @@ function renderInvoicingSection() {
   // Group students by parent for family invoicing
   const families = groupStudentsByParent(keys);
   const familyRows = Object.entries(families).map(([email, fam]) => {
-    const fb = computeFamilyBilling(fam.studentKeys);
+    const fb = computeFamilyBilling(fam.studentKeys, invoiceYear, invoiceMonth);
     const names = fam.studentKeys.map(k => students[k].profile.name);
     return { email, parentEmail: fam.parentEmail, parentName: fam.parentName, studentKeys: fam.studentKeys, names, ...fb };
-  }).filter(r => r.balanceDue !== 0 || r.children.length > 0);
+  });
 
-  const billable = familyRows.filter(r => r.balanceDue > 0);
+  const withBalance = familyRows.filter(r => r.balanceDue > 0);
 
   return h('div', {},
     // Divider
     h('div', { style: { borderTop: '2px solid var(--border)', margin: '24px 0' } }),
 
     h('h2', { class: 'section-title' }, 'Invoicing'),
-    h('p', { class: 'section-sub' }, 'Generate Gmail drafts — grouped by family'),
+    h('p', { class: 'section-sub' }, 'Generate Gmail drafts for all families — paid, unpaid, and credit'),
+
+    // Month picker
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' } },
+      h('button', { class: 'btn-outline', style: { padding: '4px 10px', fontSize: '12px' }, onClick: () => {
+        invoiceMonth--;
+        if (invoiceMonth < 0) { invoiceMonth = 11; invoiceYear--; }
+        invoicePreviewFamily = null; invoiceStatus = null; render();
+      }}, '<'),
+      h('div', { style: { fontWeight: '600', fontSize: '14px', minWidth: '140px', textAlign: 'center' } },
+        new Date(invoiceYear, invoiceMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })),
+      h('button', { class: 'btn-outline', style: { padding: '4px 10px', fontSize: '12px' }, onClick: () => {
+        invoiceMonth++;
+        if (invoiceMonth > 11) { invoiceMonth = 0; invoiceYear++; }
+        invoicePreviewFamily = null; invoiceStatus = null; render();
+      }}, '>')
+    ),
 
     // Gmail connection
     !gmailAccessToken ? h('div', { class: 'card', style: { textAlign: 'center', padding: '20px' } },
@@ -1729,7 +1757,7 @@ function renderInvoicingSection() {
     // Family summary table
     familyRows.length > 0 ? h('div', { class: 'card' },
       h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '10px' } },
-        familyRows.length + ' families, ' + billable.length + ' with balance due'),
+        familyRows.length + ' families' + (withBalance.length > 0 ? ', ' + withBalance.length + ' with balance due' : ', all paid up')),
       ...familyRows.map(r =>
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' } },
           h('div', {},
@@ -1738,8 +1766,31 @@ function renderInvoicingSection() {
               r.parentName + (r.periodLabel ? ' \u00B7 ' + r.periodLabel : '')
             )
           ),
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
             h('button', { class: 'btn-outline', style: { padding: '2px 8px', fontSize: '10px' }, onClick: () => { invoicePreviewFamily = r.email; render(); } }, 'Preview'),
+            gmailAccessToken && r.parentEmail ? h('button', { class: 'btn', style: { padding: '2px 8px', fontSize: '10px' }, onClick: async (e) => {
+              const btn = e.target; btn.disabled = true; btn.textContent = '...';
+              try {
+                const fb = computeFamilyBilling(r.studentKeys, invoiceYear, invoiceMonth);
+                const names = r.names.join(' & ');
+                const invoiceData = {
+                  businessName: 'Professor of Funk', businessEmail: 'simonoto@gmail.com',
+                  invoiceDate: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+                  parentName: r.parentName || '', children: fb.children, totalCharges: fb.totalCharges,
+                  previousBalance: fb.totalPreviousBalance, paymentsThisMonth: fb.totalPaymentsThisMonth,
+                  balanceDue: fb.balanceDue, periodLabel: fb.periodLabel
+                };
+                await createGmailDraft(
+                  r.parentEmail.split(',')[0].trim(),
+                  'Professor of Funk - ' + (fb.periodLabel || 'Statement') + ' - ' + names,
+                  buildInvoiceHtml(invoiceData)
+                );
+                btn.textContent = '\u2713'; btn.style.background = 'var(--green)';
+              } catch (err) {
+                btn.textContent = '\u2717'; btn.style.background = 'var(--red)';
+                alert('Draft failed for ' + r.names.join(' & ') + ': ' + err.message);
+              }
+            }}, 'Send') : '',
             h('div', { style: { textAlign: 'right', minWidth: '60px' } },
               h('div', { style: { fontWeight: '700', fontSize: '15px', color: r.balanceDue > 0 ? 'var(--red)' : r.balanceDue < 0 ? 'var(--blue)' : 'var(--green)' } },
                 (r.balanceDue < 0 ? '-' : '') + fmtCurrency(r.balanceDue)),
@@ -1750,18 +1801,18 @@ function renderInvoicingSection() {
         )
       )
     ) : h('div', { class: 'card', style: { textAlign: 'center', padding: '20px', color: 'var(--muted)' } },
-      'No outstanding balances'),
+      'No families with parent emails configured'),
 
     // Generate all button
-    gmailAccessToken && billable.length > 0 ? h('button', {
+    gmailAccessToken && familyRows.length > 0 ? h('button', {
       class: 'btn',
       style: { width: '100%', marginTop: '12px', padding: '12px' },
       onClick: async () => {
-        if (!confirm('Create Gmail drafts for ' + billable.length + ' families with a balance due?')) return;
+        if (!confirm('Create Gmail drafts for all ' + familyRows.length + ' families?')) return;
         let created = 0, skipped = 0, errors = [];
-        for (const r of billable) {
+        for (const r of familyRows) {
           if (!r.parentEmail) { skipped++; continue; }
-          const fb = computeFamilyBilling(r.studentKeys);
+          const fb = computeFamilyBilling(r.studentKeys, invoiceYear, invoiceMonth);
           const names = r.names.join(' & ');
           const invoiceData = {
             businessName: 'Professor of Funk',
@@ -1770,6 +1821,8 @@ function renderInvoicingSection() {
             parentName: r.parentName || '',
             children: fb.children,
             totalCharges: fb.totalCharges,
+            previousBalance: fb.totalPreviousBalance,
+            paymentsThisMonth: fb.totalPaymentsThisMonth,
             balanceDue: fb.balanceDue,
             periodLabel: fb.periodLabel
           };
@@ -1777,7 +1830,7 @@ function renderInvoicingSection() {
           try {
             await createGmailDraft(
               toEmail,
-              'Professor of Funk - ' + (fb.periodLabel || 'Invoice') + ' - ' + names,
+              'Professor of Funk - ' + (fb.periodLabel || 'Statement') + ' - ' + names,
               buildInvoiceHtml(invoiceData)
             );
             created++;
@@ -1789,7 +1842,7 @@ function renderInvoicingSection() {
         invoiceStatus = { created, skipped, errors };
         render();
       }
-    }, 'Generate ' + billable.length + ' Invoice Drafts') : '',
+    }, 'Generate ' + familyRows.length + ' Invoice Drafts') : '',
 
     // Status feedback
     invoiceStatus ? h('div', { class: 'card', style: { marginTop: '12px', borderTop: '3px solid var(--green)' } },
@@ -1813,7 +1866,7 @@ function renderFamilyInvoicePreview(familyEmail) {
   const fam = families[familyEmail];
   if (!fam) { invoicePreviewFamily = null; return ''; }
 
-  const fb = computeFamilyBilling(fam.studentKeys);
+  const fb = computeFamilyBilling(fam.studentKeys, invoiceYear, invoiceMonth);
   const data = {
     businessName: 'Professor of Funk',
     businessEmail: 'simonoto@gmail.com',
@@ -1821,6 +1874,8 @@ function renderFamilyInvoicePreview(familyEmail) {
     parentName: fam.parentName || '',
     children: fb.children,
     totalCharges: fb.totalCharges,
+    previousBalance: fb.totalPreviousBalance,
+    paymentsThisMonth: fb.totalPaymentsThisMonth,
     balanceDue: fb.balanceDue,
     periodLabel: fb.periodLabel
   };
@@ -1831,10 +1886,30 @@ function renderFamilyInvoicePreview(familyEmail) {
   },
     h('div', { style: { background: '#fff', borderRadius: '12px', maxWidth: '640px', width: '100%', maxHeight: '80vh', overflow: 'auto', padding: '24px' } },
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' } },
-        h('div', { style: { fontWeight: '600', fontSize: '14px', color: '#333' } }, 'Invoice Preview'),
+        h('div', { style: { fontWeight: '600', fontSize: '14px', color: '#333' } }, 'Invoice Preview — ' + fam.studentKeys.map(k => students[k].profile.name).join(' & ')),
         h('button', { style: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#666' }, onClick: () => { invoicePreviewFamily = null; render(); } }, '\u00D7')
       ),
-      h('div', { html: buildInvoiceHtml(data) })
+      h('div', { html: buildInvoiceHtml(data) }),
+      gmailAccessToken && fam.parentEmail ? h('button', {
+        class: 'btn', id: 'preview-send-btn',
+        style: { width: '100%', marginTop: '16px', padding: '10px' },
+        onClick: async (e) => {
+          const btn = e.target; btn.disabled = true; btn.textContent = 'Creating draft...';
+          try {
+            const names = fam.studentKeys.map(k => students[k].profile.name).join(' & ');
+            await createGmailDraft(
+              fam.parentEmail.split(',')[0].trim(),
+              'Professor of Funk - ' + (fb.periodLabel || 'Statement') + ' - ' + names,
+              buildInvoiceHtml(data)
+            );
+            btn.textContent = 'Draft created! Check Gmail.';
+            btn.style.background = 'var(--green)';
+          } catch (err) {
+            btn.textContent = 'Failed: ' + err.message;
+            btn.style.background = 'var(--red)';
+          }
+        }
+      }, 'Create Gmail Draft for ' + (fam.parentName || fam.parentEmail)) : ''
     )
   );
 }

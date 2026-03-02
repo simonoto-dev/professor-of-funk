@@ -113,16 +113,67 @@ input,textarea,select,button{font-family:inherit;font-size:inherit;}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
-<div id="auth-gate" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
-<div style="text-align:center;padding:40px;">
+<!-- Landing: access code entry -->
+<div id="screen-landing" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
+<div style="text-align:center;padding:40px;max-width:380px;width:100%;">
 <div style="font-size:48px;margin-bottom:12px;">🎸</div>
 <div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;color:#D4943A;margin-bottom:4px;">Professor of Funk</div>
-<div style="color:#888899;font-size:12px;margin-bottom:24px;">Student Portal — Enter your access code</div>
-<input id="auth-pw" type="password" placeholder="Access code" style="width:240px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;" onkeydown="if(event.key==='Enter')checkAuth()">
-<br><button onclick="checkAuth()" style="margin-top:12px;padding:8px 32px;border-radius:10px;border:none;background:#D4943A;color:#000;font-weight:600;font-size:14px;cursor:pointer;">Enter</button>
+<div style="color:#888899;font-size:12px;margin-bottom:24px;">Student Portal</div>
+<input id="auth-pw" type="text" placeholder="Enter your access code" autocomplete="off" autocapitalize="none" style="width:100%;max-width:280px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;display:block;margin:0 auto 8px;" onkeydown="if(event.key==='Enter')checkAuth()">
+<button onclick="checkAuth()" style="padding:8px 32px;border-radius:10px;border:none;background:#D4943A;color:#000;font-weight:600;font-size:14px;cursor:pointer;width:100%;max-width:280px;">Continue</button>
 <div id="auth-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;">Invalid access code</div>
+<div style="display:flex;align-items:center;gap:12px;margin:16px auto;max-width:280px;"><span style="flex:1;height:1px;background:#2a2a35;"></span><span style="color:#888899;font-size:11px;">or</span><span style="flex:1;height:1px;background:#2a2a35;"></span></div>
+<button onclick="showPortalScreen('screen-signin')" style="padding:8px 32px;border-radius:10px;border:1px solid #2a2a35;background:transparent;color:#e8e8ef;font-weight:500;font-size:13px;cursor:pointer;width:100%;max-width:280px;">Already have an account? Sign In</button>
 </div>
 </div>
+
+<!-- Upgrade: set permanent login after code verification -->
+<div id="screen-upgrade" style="display:none;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
+<div style="text-align:center;padding:40px;max-width:380px;width:100%;">
+<div style="font-size:36px;margin-bottom:12px;">🔒</div>
+<div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;color:#D4943A;margin-bottom:4px;">Set Up Your Login</div>
+<div style="color:#888899;font-size:12px;margin-bottom:24px;">Create a permanent login so you don't need the access code next time.</div>
+<input id="upgrade-email" type="email" placeholder="Your email address" autocomplete="email" style="width:100%;max-width:280px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;display:block;margin:0 auto 8px;">
+<input id="upgrade-pw" type="password" placeholder="Choose a password (6+ chars)" autocomplete="new-password" style="width:100%;max-width:280px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;display:block;margin:0 auto 8px;">
+<button onclick="portalUpgradeEmail()" style="padding:8px 32px;border-radius:10px;border:none;background:#D4943A;color:#000;font-weight:600;font-size:14px;cursor:pointer;width:100%;max-width:280px;">Create Account</button>
+<div id="upgrade-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;"></div>
+<div id="upgrade-success" style="color:#4ade80;font-size:12px;margin-top:8px;display:none;">Account created! Loading portal...</div>
+<div style="display:flex;align-items:center;gap:12px;margin:16px auto;max-width:280px;"><span style="flex:1;height:1px;background:#2a2a35;"></span><span style="color:#888899;font-size:11px;">or</span><span style="flex:1;height:1px;background:#2a2a35;"></span></div>
+<button onclick="portalUpgradeGoogle()" style="padding:8px 32px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-weight:500;font-size:13px;cursor:pointer;width:100%;max-width:280px;display:flex;align-items:center;justify-content:center;gap:8px;margin:0 auto;">
+  <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+  Continue with Google
+</button>
+<div onclick="portalSkipUpgrade()" style="color:#D4943A;font-size:12px;cursor:pointer;margin-top:16px;display:inline-block;">Skip for now</div>
+</div>
+</div>
+
+<!-- Sign in: returning users -->
+<div id="screen-signin" style="display:none;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
+<div style="text-align:center;padding:40px;max-width:380px;width:100%;">
+<div style="font-size:48px;margin-bottom:12px;">🎸</div>
+<div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;color:#D4943A;margin-bottom:4px;">Welcome Back</div>
+<div style="color:#888899;font-size:12px;margin-bottom:24px;">Sign in to your student portal</div>
+<input id="signin-email" type="email" placeholder="Email address" autocomplete="email" style="width:100%;max-width:280px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;display:block;margin:0 auto 8px;">
+<input id="signin-pw" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;max-width:280px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;display:block;margin:0 auto 8px;" onkeydown="if(event.key==='Enter')portalSignin()">
+<button onclick="portalSignin()" style="padding:8px 32px;border-radius:10px;border:none;background:#D4943A;color:#000;font-weight:600;font-size:14px;cursor:pointer;width:100%;max-width:280px;">Sign In</button>
+<div id="signin-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;"></div>
+<div style="display:flex;align-items:center;gap:12px;margin:16px auto;max-width:280px;"><span style="flex:1;height:1px;background:#2a2a35;"></span><span style="color:#888899;font-size:11px;">or</span><span style="flex:1;height:1px;background:#2a2a35;"></span></div>
+<button onclick="portalSigninGoogle()" style="padding:8px 32px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-weight:500;font-size:13px;cursor:pointer;width:100%;max-width:280px;display:flex;align-items:center;justify-content:center;gap:8px;margin:0 auto;">
+  <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+  Sign in with Google
+</button>
+<div onclick="showPortalScreen('screen-landing')" style="color:#D4943A;font-size:12px;cursor:pointer;margin-top:16px;display:inline-block;">Use an access code instead</div>
+</div>
+</div>
+
+<!-- Loading spinner -->
+<div id="screen-loading" style="display:none;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
+<div style="text-align:center;padding:40px;">
+<div style="font-size:36px;margin-bottom:12px;animation:pulse 1.5s infinite;">🎸</div>
+<div style="color:#888899;font-size:12px;">Loading your portal...</div>
+</div>
+</div>
+<style>@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}</style>
 <div class="app" id="app" style="display:none;"></div>
 <script>
 /* ===== FIREBASE SETUP ===== */
@@ -166,6 +217,19 @@ function onDataChange(key, callback) {
 const AUTH_KEY = 'pof-portal-student';
 let currentStudent = null;
 let currentTab = 0;
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+const portalScreens = ['screen-landing', 'screen-upgrade', 'screen-signin', 'screen-loading'];
+
+function showPortalScreen(id) {
+  portalScreens.forEach(s => document.getElementById(s).style.display = s === id ? 'flex' : 'none');
+  document.getElementById('app').style.display = 'none';
+}
+
+function showPortalErr(elId, msg) {
+  const el = document.getElementById(elId);
+  el.textContent = msg;
+  el.style.display = 'block';
+}
 
 async function checkAuth() {
   const code = document.getElementById('auth-pw').value.trim().toLowerCase();
@@ -176,7 +240,7 @@ async function checkAuth() {
     // 1. Look up access code → student key (public read)
     const snap = await fbDb.ref(DB_ROOT + "/meta/accessCodes/" + code).once("value");
     const studentKey = snap.val();
-    if (!studentKey) { errEl.style.display = 'block'; return; }
+    if (!studentKey) { errEl.style.display = 'block'; errEl.textContent = 'Invalid access code'; return; }
     // 2. Get the student's profile accessCode (the one that matches the Auth password)
     const profileSnap = await fbDb.ref(DB_ROOT + "/students/" + studentKey + "/profile/accessCode").once("value");
     const authCode = profileSnap.val() || code;
@@ -187,7 +251,17 @@ async function checkAuth() {
     );
     currentStudent = studentKey;
     sessionStorage.setItem(AUTH_KEY, studentKey);
-    showApp();
+
+    // 4. Check if already upgraded
+    const uid = firebase.auth().currentUser.uid;
+    const profileCheck = await dbRef('userProfiles/' + uid).once('value');
+    if (profileCheck.val()) {
+      // Already upgraded — go to dashboard
+      showApp();
+    } else {
+      // Show upgrade screen
+      showPortalScreen('screen-upgrade');
+    }
   } catch (e) {
     console.error('Auth failed:', e);
     errEl.textContent = e.code === 'auth/invalid-credential' ? 'Invalid access code or account not set up' : 'Login failed — please try again';
@@ -195,8 +269,112 @@ async function checkAuth() {
   }
 }
 
+async function writeStudentProfile(uid) {
+  try {
+    await dbRef('userProfiles/' + uid).set({
+      type: 'student',
+      studentKey: currentStudent,
+      createdAt: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn('userProfile write:', e.code || e.message);
+  }
+}
+
+async function portalUpgradeEmail() {
+  const email = document.getElementById('upgrade-email').value.trim();
+  const pw = document.getElementById('upgrade-pw').value;
+  document.getElementById('upgrade-err').style.display = 'none';
+  if (!email || !pw) { showPortalErr('upgrade-err', 'Please fill in both fields'); return; }
+  if (pw.length < 6) { showPortalErr('upgrade-err', 'Password must be at least 6 characters'); return; }
+  const user = firebase.auth().currentUser;
+  if (!user) { showPortalErr('upgrade-err', 'Session expired — please start over'); return; }
+  try {
+    await user.updateEmail(email);
+    await user.updatePassword(pw);
+    await writeStudentProfile(user.uid);
+    document.getElementById('upgrade-success').style.display = 'block';
+    setTimeout(() => showApp(), 800);
+  } catch (e) {
+    console.error('Upgrade failed:', e);
+    if (e.code === 'auth/email-already-in-use') showPortalErr('upgrade-err', 'That email is already in use. Try signing in instead.');
+    else if (e.code === 'auth/invalid-email') showPortalErr('upgrade-err', 'Please enter a valid email address.');
+    else showPortalErr('upgrade-err', 'Upgrade failed: ' + (e.message || e.code));
+  }
+}
+
+async function portalUpgradeGoogle() {
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  document.getElementById('upgrade-err').style.display = 'none';
+  try {
+    await user.linkWithPopup(googleProvider);
+    await writeStudentProfile(user.uid);
+    showApp();
+  } catch (e) {
+    console.error('Google link failed:', e);
+    if (e.code === 'auth/credential-already-in-use') showPortalErr('upgrade-err', 'That Google account is already linked to another login.');
+    else showPortalErr('upgrade-err', 'Google sign-in failed: ' + (e.message || e.code));
+  }
+}
+
+async function portalSkipUpgrade() {
+  await writeStudentProfile(firebase.auth().currentUser.uid);
+  showApp();
+}
+
+async function portalSignin() {
+  const email = document.getElementById('signin-email').value.trim();
+  const pw = document.getElementById('signin-pw').value;
+  document.getElementById('signin-err').style.display = 'none';
+  if (!email || !pw) { showPortalErr('signin-err', 'Please fill in both fields'); return; }
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, pw);
+    await resolveStudentFromProfile();
+  } catch (e) {
+    console.error('Sign-in failed:', e);
+    if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found')
+      showPortalErr('signin-err', 'Invalid email or password');
+    else showPortalErr('signin-err', 'Sign-in failed — please try again');
+  }
+}
+
+async function portalSigninGoogle() {
+  document.getElementById('signin-err').style.display = 'none';
+  try {
+    await firebase.auth().signInWithPopup(googleProvider);
+    await resolveStudentFromProfile();
+  } catch (e) {
+    console.error('Google sign-in failed:', e);
+    if (e.code !== 'auth/popup-closed-by-user')
+      showPortalErr('signin-err', 'Google sign-in failed: ' + (e.message || e.code));
+  }
+}
+
+async function resolveStudentFromProfile() {
+  showPortalScreen('screen-loading');
+  const uid = firebase.auth().currentUser.uid;
+  try {
+    const snap = await dbRef('userProfiles/' + uid).once('value');
+    const profile = snap.val();
+    if (!profile || profile.type !== 'student') {
+      showPortalScreen('screen-signin');
+      showPortalErr('signin-err', 'No student account found for this login. Try using your access code first.');
+      await firebase.auth().signOut();
+      return;
+    }
+    currentStudent = profile.studentKey;
+    sessionStorage.setItem(AUTH_KEY, currentStudent);
+    showApp();
+  } catch (e) {
+    console.error('Profile resolve failed:', e);
+    showPortalScreen('screen-signin');
+    showPortalErr('signin-err', 'Failed to load account data');
+  }
+}
+
 async function showApp() {
-  document.getElementById('auth-gate').style.display = 'none';
+  portalScreens.forEach(s => document.getElementById(s).style.display = 'none');
   document.getElementById('app').style.display = 'flex';
   await loadStudentData();
   loadPracticeData();
@@ -209,20 +387,35 @@ function logout() {
   firebase.auth().signOut();
   sessionStorage.removeItem(AUTH_KEY);
   currentStudent = null;
-  document.getElementById('auth-gate').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
+  showPortalScreen('screen-landing');
   document.getElementById('auth-pw').value = '';
   document.getElementById('auth-err').style.display = 'none';
 }
 
 // Auto-login: check if Firebase Auth session is still valid
-firebase.auth().onAuthStateChanged(user => {
-  if (user && !currentStudent) {
-    const saved = sessionStorage.getItem(AUTH_KEY);
-    if (saved) {
-      currentStudent = saved;
+firebase.auth().onAuthStateChanged(async user => {
+  if (!user || currentStudent) return;
+  showPortalScreen('screen-loading');
+  try {
+    const uid = user.uid;
+    const snap = await dbRef('userProfiles/' + uid).once('value');
+    const profile = snap.val();
+    if (profile && profile.type === 'student') {
+      currentStudent = profile.studentKey;
+      sessionStorage.setItem(AUTH_KEY, currentStudent);
       showApp();
+    } else {
+      // Fallback: try sessionStorage key (for users who haven't upgraded yet)
+      const saved = sessionStorage.getItem(AUTH_KEY);
+      if (saved) {
+        currentStudent = saved;
+        showApp();
+      } else {
+        showPortalScreen('screen-landing');
+      }
     }
+  } catch (e) {
+    showPortalScreen('screen-landing');
   }
 });
 

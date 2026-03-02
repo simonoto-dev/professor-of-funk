@@ -14,7 +14,7 @@
 :root {
   --bg:#0a0a0f; --surface:#13131a; --surface2:#1a1a24; --border:#2a2a35;
   --accent:#D4943A; --accent-glow:rgba(212,148,58,0.15);
-  --green:#4ade80; --red:#f87171; --blue:#60a5fa; --yellow:#fbbf24;
+  --green:#4ade80; --red:#f87171; --blue:#60a5fa; --yellow:#fbbf24; --purple:#c084fc;
   --text:#e8e8ef; --muted:#888899;
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
@@ -22,6 +22,7 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;}
 body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.5;}
+input,button{font-family:inherit;font-size:inherit;}
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding-top:var(--safe-top);}
 .header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;height:52px;flex-shrink:0;}
 .logo{display:flex;align-items:center;gap:8px;margin-right:auto;}
@@ -45,6 +46,106 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','Segoe U
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;}
 .badge-green{background:rgba(74,222,128,0.15);color:var(--green);}
 .badge-red{background:rgba(248,113,113,0.15);color:var(--red);}
+.badge-yellow{background:rgba(251,191,36,0.15);color:var(--yellow);}
+.badge-accent{background:var(--accent-glow);color:var(--accent);}
+
+/* Auth screens */
+.auth-screen{display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg);}
+.auth-box{text-align:center;padding:40px;max-width:380px;width:100%;}
+.auth-title{font-family:'DM Serif Display',Georgia,serif;font-size:26px;color:var(--accent);margin-bottom:4px;}
+.auth-sub{color:var(--muted);font-size:12px;margin-bottom:24px;}
+.auth-input{width:100%;max-width:280px;padding:10px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;text-align:center;outline:none;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;}
+.auth-input:focus{border-color:var(--accent);}
+.auth-btn{padding:8px 32px;border-radius:10px;border:none;background:var(--accent);color:#000;font-weight:600;font-size:14px;cursor:pointer;margin-top:8px;width:100%;max-width:280px;}
+.auth-btn:disabled{opacity:0.5;cursor:default;}
+.auth-btn-outline{padding:8px 32px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-weight:500;font-size:13px;cursor:pointer;margin-top:8px;width:100%;max-width:280px;}
+.auth-btn-google{padding:8px 32px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-weight:500;font-size:13px;cursor:pointer;margin-top:8px;width:100%;max-width:280px;display:flex;align-items:center;justify-content:center;gap:8px;margin-left:auto;margin-right:auto;}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:16px auto;max-width:280px;}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.auth-divider span{color:var(--muted);font-size:11px;}
+.auth-err{color:var(--red);font-size:12px;margin-top:10px;display:none;}
+.auth-link{color:var(--accent);font-size:12px;cursor:pointer;margin-top:16px;display:inline-block;}
+.auth-success{color:var(--green);font-size:12px;margin-top:8px;display:none;}
+
+/* Pay Now modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:400px;width:100%;max-height:80vh;overflow-y:auto;padding:24px;}
+.modal-title{font-family:'DM Serif Display',Georgia,serif;font-size:20px;margin-bottom:4px;}
+.modal-sub{color:var(--muted);font-size:12px;margin-bottom:20px;}
+.pay-option{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);margin-bottom:8px;cursor:pointer;text-decoration:none;color:var(--text);transition:border-color 0.2s;}
+.pay-option:hover{border-color:var(--accent);}
+.pay-icon{font-size:24px;flex-shrink:0;}
+.pay-name{font-weight:600;font-size:14px;}
+.pay-detail{font-size:11px;color:var(--muted);}
+.modal-close{background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 20px;color:var(--muted);font-size:12px;cursor:pointer;margin-top:12px;width:100%;}
+.modal-confirm{background:var(--accent);border:none;border-radius:8px;padding:8px 20px;color:#000;font-weight:600;font-size:13px;cursor:pointer;margin-top:8px;width:100%;}
+
+/* Payment history */
+.payment-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+.payment-row:last-child{border-bottom:none;}
+.payment-amount{font-weight:700;font-size:14px;}
+.payment-date{font-size:11px;color:var(--muted);}
+.payment-method{font-size:10px;color:var(--muted);text-transform:uppercase;}
+
+.expandable{cursor:pointer;user-select:none;}
+.expandable .expand-header{display:flex;align-items:center;justify-content:space-between;}
+.expandable .expand-chevron{font-size:10px;color:var(--muted);transition:transform 0.2s;flex-shrink:0;margin-left:8px;}
+.expandable.open .expand-chevron{transform:rotate(180deg);}
+.expand-body{overflow:hidden;max-height:0;transition:max-height 0.3s ease;}
+.expandable.open .expand-body{max-height:2000px;}
+
+/* Section headers */
+.section-header{display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer;user-select:none;}
+.section-header .section-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0;}
+.section-header .section-label{font-size:12px;font-weight:600;color:var(--text);flex:1;}
+.section-header .section-hint{font-size:11px;color:var(--muted);flex-shrink:0;margin-right:4px;}
+.section-header .expand-chevron{font-size:10px;color:var(--muted);transition:transform 0.2s;flex-shrink:0;}
+.section-divider{border-top:1px solid var(--border);margin-top:4px;}
+
+/* Practice grid (read-only) */
+.practice-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:8px 0;}
+.practice-day{text-align:center;}
+.practice-day-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;}
+.practice-check{width:32px;height:32px;border-radius:8px;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:16px;margin:0 auto;}
+.practice-check.checked{background:var(--accent-glow);border-color:var(--accent);color:var(--accent);}
+.practice-check.future{opacity:0.3;}
+
+/* Song scores */
+.song-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.song-row:last-child{border-bottom:none;}
+.song-info{flex:1;min-width:0;}
+.song-title{font-weight:600;font-size:13px;}
+.song-artist{font-size:11px;color:var(--muted);}
+.song-stars{display:flex;gap:1px;justify-content:flex-end;}
+.song-star{font-size:14px;line-height:1;}
+.song-score-label{font-size:9px;color:var(--accent);font-weight:600;text-align:right;margin-top:1px;}
+
+/* Timeline / milestones */
+.timeline{position:relative;padding-left:24px;}
+.timeline::before{content:'';position:absolute;left:5px;top:0;bottom:0;width:2px;background:var(--border);}
+.timeline-item{position:relative;padding-bottom:12px;}
+.timeline-item::before{content:'';position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;border:2px solid var(--accent);background:var(--bg);}
+.timeline-item.completed::before{background:var(--accent);}
+
+/* Lesson cards */
+.lesson-card-parent{background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:6px;}
+.lesson-date-label{font-size:10px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}
+.lesson-title-text{font-family:'DM Serif Display',Georgia,serif;font-size:14px;margin:2px 0 4px;}
+.lesson-summary{font-size:12px;color:var(--muted);line-height:1.4;}
+.lesson-concepts{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.concept-tag{padding:2px 7px;border-radius:10px;font-size:9px;font-weight:600;background:var(--surface);border:1px solid var(--border);color:var(--muted);}
+
+/* Assignment block */
+.assignment-block{background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:6px;}
+.assignment-label{font-size:10px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+.assignment-text{font-size:13px;line-height:1.5;}
+
+/* Next lesson pill */
+.next-lesson{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);margin-top:2px;}
+
+/* Pay Now inline hint */
+.pay-hint{font-size:10px;color:var(--red);font-weight:600;margin-left:auto;flex-shrink:0;}
+
 @media(min-width:700px){
   .stats-row{grid-template-columns:repeat(4,1fr);}
 }
@@ -57,17 +158,68 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','Segoe U
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
-<div id="auth-gate" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
-<div style="text-align:center;padding:40px;">
-<div style="font-size:48px;margin-bottom:12px;">&#x1F468;&#x200D;&#x1F469;&#x200D;&#x1F467;&#x200D;&#x1F466;</div>
-<div style="font-family:'DM Serif Display',Georgia,serif;font-size:26px;color:#D4943A;margin-bottom:4px;">Professor of Funk</div>
-<div style="color:#888899;font-size:12px;margin-bottom:24px;">Parent Dashboard — Enter your access code</div>
-<input id="auth-pw" type="password" placeholder="Parent access code" style="width:240px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;" onkeydown="if(event.key==='Enter')checkAuth()">
-<br><button onclick="checkAuth()" style="margin-top:12px;padding:8px 32px;border-radius:10px;border:none;background:#D4943A;color:#000;font-weight:600;font-size:14px;cursor:pointer;">Enter</button>
-<div id="auth-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;">Invalid access code</div>
+
+<!-- Auth screens (shown/hidden by JS) -->
+<div id="screen-landing" class="auth-screen">
+  <div class="auth-box">
+    <div style="font-size:48px;margin-bottom:12px;">&#x1F468;&#x200D;&#x1F469;&#x200D;&#x1F467;&#x200D;&#x1F466;</div>
+    <div class="auth-title">Professor of Funk</div>
+    <div class="auth-sub">Parent Dashboard</div>
+    <input id="code-input" class="auth-input" type="text" placeholder="Enter your access code" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')submitCode()">
+    <button class="auth-btn" onclick="submitCode()">Continue</button>
+    <div id="code-err" class="auth-err">Invalid access code</div>
+    <div class="auth-divider"><span>or</span></div>
+    <button class="auth-btn-outline" onclick="showScreen('screen-signin')">Already have an account? Sign In</button>
+  </div>
 </div>
+
+<div id="screen-upgrade" class="auth-screen" style="display:none;">
+  <div class="auth-box">
+    <div style="font-size:36px;margin-bottom:12px;">&#x1F512;</div>
+    <div class="auth-title">Set Up Your Login</div>
+    <div class="auth-sub">Create a permanent login so you don't need the access code next time.</div>
+    <input id="upgrade-email" class="auth-input" type="email" placeholder="Your email address" autocomplete="email">
+    <input id="upgrade-pw" class="auth-input" type="password" placeholder="Choose a password (6+ chars)" autocomplete="new-password">
+    <button class="auth-btn" onclick="upgradeEmailPassword()">Create Account</button>
+    <div id="upgrade-err" class="auth-err"></div>
+    <div id="upgrade-success" class="auth-success">Account created! Loading dashboard...</div>
+    <div class="auth-divider"><span>or</span></div>
+    <button class="auth-btn-google" onclick="upgradeGoogle()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <div class="auth-link" onclick="skipUpgrade()">Skip for now</div>
+  </div>
 </div>
+
+<div id="screen-signin" class="auth-screen" style="display:none;">
+  <div class="auth-box">
+    <div style="font-size:48px;margin-bottom:12px;">&#x1F468;&#x200D;&#x1F469;&#x200D;&#x1F467;&#x200D;&#x1F466;</div>
+    <div class="auth-title">Welcome Back</div>
+    <div class="auth-sub">Sign in to your parent dashboard</div>
+    <input id="signin-email" class="auth-input" type="email" placeholder="Email address" autocomplete="email">
+    <input id="signin-pw" class="auth-input" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')signinEmailPassword()">
+    <button class="auth-btn" onclick="signinEmailPassword()">Sign In</button>
+    <div id="signin-err" class="auth-err"></div>
+    <div class="auth-divider"><span>or</span></div>
+    <button class="auth-btn-google" onclick="signinGoogle()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="auth-link" onclick="showScreen('screen-landing')">Use an access code instead</div>
+  </div>
+</div>
+
+<div id="screen-loading" class="auth-screen" style="display:none;">
+  <div class="auth-box">
+    <div style="font-size:36px;margin-bottom:12px;animation:pulse 1.5s infinite;">&#x1F468;&#x200D;&#x1F469;&#x200D;&#x1F467;&#x200D;&#x1F466;</div>
+    <div class="auth-sub">Loading your dashboard...</div>
+  </div>
+</div>
+<style>@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}</style>
+
 <div class="app" id="app" style="display:none;"></div>
+
 <script>
 /* ===== FIREBASE SETUP ===== */
 const firebaseConfig = {
@@ -84,91 +236,285 @@ const fbDb = firebase.database();
 const DB_ROOT = "professorOfFunk";
 function dbRef(path) { return fbDb.ref(DB_ROOT + "/" + path); }
 
-/* ===== AUTH ===== */
-const AUTH_KEY = 'pof-parent-auth';
-let currentParent = null;
-let parentData = null;
-let childrenData = {};
+const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-async function checkAuth() {
-  const code = document.getElementById('auth-pw').value.trim().toLowerCase();
-  if (!code) { document.getElementById('auth-err').style.display = 'block'; return; }
+/* ===== STATE ===== */
+let currentParentId = null;  // parent record key (e.g. "rosenbluth1")
+let parentData = null;       // parents/{parentId} record
+let childrenData = {};       // studentKey -> student record
+let childrenKeys = [];       // ordered child keys
+let authMode = null;         // 'code' | 'returning'
+let pendingUpgrade = false;  // true when signed in via code, upgrade not yet done
+let payModalStudent = null;  // student key for Pay Now modal
+let expandedSections = new Set();
+
+/* ===== SCREEN MANAGEMENT ===== */
+const screens = ['screen-landing', 'screen-upgrade', 'screen-signin', 'screen-loading'];
+function showScreen(id) {
+  screens.forEach(s => document.getElementById(s).style.display = s === id ? 'flex' : 'none');
+  document.getElementById('app').style.display = 'none';
+}
+
+function showApp() {
+  screens.forEach(s => document.getElementById(s).style.display = 'none');
+  document.getElementById('app').style.display = 'flex';
+}
+
+function showErr(elId, msg) {
+  const el = document.getElementById(elId);
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function hideErr(elId) {
+  document.getElementById(elId).style.display = 'none';
+}
+
+/* ===== ACCESS CODE FLOW ===== */
+async function submitCode() {
+  const code = document.getElementById('code-input').value.trim().toLowerCase();
+  if (!code) return;
+  hideErr('code-err');
   try {
+    // 1. Look up parent access code
     const snap = await fbDb.ref(DB_ROOT + '/meta/parentAccessCodes/' + code).once('value');
     const parentId = snap.val();
-    if (!parentId) {
-      document.getElementById('auth-err').style.display = 'block';
-      return;
-    }
+    if (!parentId) { showErr('code-err', 'Invalid access code'); return; }
+
+    // 2. Get the stored accessCode from parent profile (password was created with it)
+    const parentProfileSnap = await fbDb.ref(DB_ROOT + '/parents/' + parentId + '/profile/accessCode').once('value');
+    const storedCode = parentProfileSnap.val() || code;
+
+    // 3. Sign in with synthetic Firebase Auth account
     await firebase.auth().signInWithEmailAndPassword(
       parentId + '@parent.professoroffunk.app',
-      code + '!PoF'
+      storedCode + '!PoF'
     );
-    currentParent = parentId;
-    sessionStorage.setItem(AUTH_KEY, code);
-    await showApp();
+
+    currentParentId = parentId;
+    authMode = 'code';
+
+    // 3. Check if this user already has a userProfile (already upgraded)
+    const uid = firebase.auth().currentUser.uid;
+    const profileSnap = await dbRef('userProfiles/' + uid).once('value');
+    if (profileSnap.val()) {
+      // Already upgraded — go straight to dashboard
+      await loadAndShow();
+    } else {
+      // Show upgrade prompt
+      pendingUpgrade = true;
+      showScreen('screen-upgrade');
+    }
   } catch (e) {
-    console.error('Login failed:', e);
-    document.getElementById('auth-err').style.display = 'block';
+    console.error('Code auth failed:', e);
+    if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
+      showErr('code-err', 'Access code recognized but login failed. Contact your teacher.');
+    } else {
+      showErr('code-err', 'Login failed — please try again');
+    }
   }
 }
 
-async function showApp() {
-  document.getElementById('auth-gate').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
+/* ===== UPGRADE FLOW ===== */
+async function upgradeEmailPassword() {
+  const email = document.getElementById('upgrade-email').value.trim();
+  const pw = document.getElementById('upgrade-pw').value;
+  hideErr('upgrade-err');
+  if (!email || !pw) { showErr('upgrade-err', 'Please fill in both fields'); return; }
+  if (pw.length < 6) { showErr('upgrade-err', 'Password must be at least 6 characters'); return; }
+
+  const user = firebase.auth().currentUser;
+  if (!user) { showErr('upgrade-err', 'Session expired — please start over'); return; }
+
+  try {
+    await user.updateEmail(email);
+    await user.updatePassword(pw);
+    await writeUserProfile(user.uid);
+    document.getElementById('upgrade-success').style.display = 'block';
+    pendingUpgrade = false;
+    setTimeout(() => loadAndShow(), 800);
+  } catch (e) {
+    console.error('Upgrade failed:', e);
+    if (e.code === 'auth/email-already-in-use') {
+      showErr('upgrade-err', 'That email is already in use. Try signing in instead.');
+    } else if (e.code === 'auth/invalid-email') {
+      showErr('upgrade-err', 'Please enter a valid email address.');
+    } else {
+      showErr('upgrade-err', 'Upgrade failed: ' + (e.message || e.code));
+    }
+  }
+}
+
+async function upgradeGoogle() {
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  hideErr('upgrade-err');
+  try {
+    await user.linkWithPopup(googleProvider);
+    await writeUserProfile(user.uid);
+    pendingUpgrade = false;
+    await loadAndShow();
+  } catch (e) {
+    console.error('Google link failed:', e);
+    if (e.code === 'auth/credential-already-in-use') {
+      showErr('upgrade-err', 'That Google account is already linked to another login.');
+    } else {
+      showErr('upgrade-err', 'Google sign-in failed: ' + (e.message || e.code));
+    }
+  }
+}
+
+async function skipUpgrade() {
+  pendingUpgrade = false;
+  await writeUserProfile(firebase.auth().currentUser.uid);
+  await loadAndShow();
+}
+
+async function writeUserProfile(uid) {
+  try {
+    await dbRef('userProfiles/' + uid).set({
+      type: 'parent',
+      parentId: currentParentId,
+      children: childrenKeys.length > 0 ? childrenKeys : Object.keys((parentData && parentData.children) || {}),
+      createdAt: new Date().toISOString()
+    });
+  } catch (e) {
+    // write-once rule: if profile already exists, that's fine
+    console.warn('userProfile write:', e.code || e.message);
+  }
+}
+
+/* ===== RETURN SIGN-IN FLOW ===== */
+async function signinEmailPassword() {
+  const email = document.getElementById('signin-email').value.trim();
+  const pw = document.getElementById('signin-pw').value;
+  hideErr('signin-err');
+  if (!email || !pw) { showErr('signin-err', 'Please fill in both fields'); return; }
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, pw);
+    authMode = 'returning';
+    await resolveFromProfile();
+  } catch (e) {
+    console.error('Sign-in failed:', e);
+    if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found') {
+      showErr('signin-err', 'Invalid email or password');
+    } else {
+      showErr('signin-err', 'Sign-in failed — please try again');
+    }
+  }
+}
+
+async function signinGoogle() {
+  hideErr('signin-err');
+  try {
+    await firebase.auth().signInWithPopup(googleProvider);
+    authMode = 'returning';
+    await resolveFromProfile();
+  } catch (e) {
+    console.error('Google sign-in failed:', e);
+    if (e.code !== 'auth/popup-closed-by-user') {
+      showErr('signin-err', 'Google sign-in failed: ' + (e.message || e.code));
+    }
+  }
+}
+
+async function resolveFromProfile() {
+  const uid = firebase.auth().currentUser.uid;
+  showScreen('screen-loading');
+  try {
+    const snap = await dbRef('userProfiles/' + uid).once('value');
+    const profile = snap.val();
+    if (!profile || profile.type !== 'parent') {
+      showScreen('screen-signin');
+      showErr('signin-err', 'No parent account found for this login. Try using your access code first.');
+      await firebase.auth().signOut();
+      return;
+    }
+    currentParentId = profile.parentId;
+    childrenKeys = profile.children || [];
+    await loadAndShow();
+  } catch (e) {
+    console.error('Profile resolve failed:', e);
+    showScreen('screen-signin');
+    showErr('signin-err', 'Failed to load account data');
+  }
+}
+
+/* ===== AUTO-LOGIN ===== */
+firebase.auth().onAuthStateChanged(async user => {
+  if (!user || currentParentId) return;
+  // Check for existing userProfile
+  showScreen('screen-loading');
+  try {
+    const snap = await dbRef('userProfiles/' + user.uid).once('value');
+    const profile = snap.val();
+    if (profile && profile.type === 'parent') {
+      currentParentId = profile.parentId;
+      childrenKeys = profile.children || [];
+      authMode = 'returning';
+      await loadAndShow();
+    } else {
+      showScreen('screen-landing');
+    }
+  } catch (e) {
+    showScreen('screen-landing');
+  }
+});
+
+/* ===== DATA LOADING ===== */
+async function loadAndShow() {
+  showScreen('screen-loading');
   await loadParentData();
+  showApp();
   render();
 }
 
-function logout() {
-  firebase.auth().signOut();
-  sessionStorage.removeItem(AUTH_KEY);
-  currentParent = null;
-  parentData = null;
-  childrenData = {};
-  document.getElementById('auth-gate').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('auth-pw').value = '';
-  document.getElementById('auth-err').style.display = 'none';
-}
-
-// Auto-login from session
-(async function() {
-  const saved = sessionStorage.getItem(AUTH_KEY);
-  if (!saved) return;
-  try {
-    const snap = await fbDb.ref(DB_ROOT + '/meta/parentAccessCodes/' + saved).once('value');
-    const parentId = snap.val();
-    if (!parentId) return;
-    await firebase.auth().signInWithEmailAndPassword(
-      parentId + '@parent.professoroffunk.app',
-      saved + '!PoF'
-    );
-    currentParent = parentId;
-    await showApp();
-  } catch (e) {
-    sessionStorage.removeItem(AUTH_KEY);
-  }
-})();
-
-/* ===== DATA ===== */
 async function loadParentData() {
-  if (!currentParent) return;
+  if (!currentParentId) return;
   try {
-    const pSnap = await dbRef("parents/" + currentParent).once("value");
+    const pSnap = await dbRef("parents/" + currentParentId).once("value");
     parentData = pSnap.val();
-    if (!parentData || !parentData.children) return;
-    const childKeys = Object.keys(parentData.children);
-    const loads = childKeys.map(async key => {
+
+    // Determine children keys from parent record or userProfile
+    let keys = [];
+    if (parentData && parentData.children) {
+      keys = Object.keys(parentData.children);
+    } else if (childrenKeys.length > 0) {
+      keys = childrenKeys;
+    }
+
+    const loads = keys.map(async key => {
       const snap = await dbRef("students/" + key).once("value");
       return [key, snap.val()];
     });
     const results = await Promise.all(loads);
     childrenData = {};
-    results.forEach(([key, val]) => { if (val) childrenData[key] = val; });
+    childrenKeys = [];
+    results.forEach(([key, val]) => {
+      if (val) {
+        childrenData[key] = val;
+        childrenKeys.push(key);
+      }
+    });
   } catch (e) {
     console.error('Failed to load parent data:', e);
   }
+}
+
+/* ===== LOGOUT ===== */
+function logout() {
+  firebase.auth().signOut();
+  currentParentId = null;
+  parentData = null;
+  childrenData = {};
+  childrenKeys = [];
+  authMode = null;
+  pendingUpgrade = false;
+  payModalStudent = null;
+  expandedSections.clear();
+  showScreen('screen-landing');
+  document.getElementById('code-input').value = '';
+  hideErr('code-err');
 }
 
 /* ===== HELPERS ===== */
@@ -178,6 +524,7 @@ function h(tag, attrs, ...children) {
     if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
     else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'class' || k === 'className') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
     else el.setAttribute(k, v);
   });
   children.flat(9).forEach(c => { if (c == null || c === false) return; el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
@@ -198,13 +545,34 @@ function getAttendanceRate(student) {
 
 function getBalance(student) {
   let totalTuition = 0;
-  Object.entries(student.programs || {}).forEach(([pid, prog]) => {
-    const attended = Object.values((student.attendance || {})[pid] || {})
-      .filter(a => a.present).length;
-    totalTuition += attended * (prog.rate || 0);
+  Object.entries(student.attendance || {}).forEach(([pid, dates]) => {
+    Object.values(dates).forEach(entry => {
+      if (entry.present) {
+        totalTuition += entry.rateSnapshot || 0;
+      }
+    });
   });
-  const totalPaid = Object.values(student.payments || {}).reduce((sum, p) => sum + (p.amount || 0), 0);
+  // Fallback: if no rateSnapshots, use program rate * attended count
+  if (totalTuition === 0) {
+    Object.entries(student.programs || {}).forEach(([pid, prog]) => {
+      const attended = Object.values((student.attendance || {})[pid] || {})
+        .filter(a => a.present).length;
+      totalTuition += attended * (prog.rate || 0);
+    });
+  }
+  const totalPaid = Object.values(student.payments || {})
+    .filter(p => p.status !== 'pending' && p.status !== 'rejected')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
   return totalTuition - totalPaid;
+}
+
+function hasPendingPayment(student) {
+  return Object.values(student.payments || {}).some(p => p.status === 'pending');
+}
+
+function getPendingPaymentId(student) {
+  const entry = Object.entries(student.payments || {}).find(([, p]) => p.status === 'pending');
+  return entry ? entry[0] : null;
 }
 
 function getWeekId(date) {
@@ -251,15 +619,377 @@ function calcMonthlyDays(practice) {
   return { practiced: count, elapsed: now.getDate() };
 }
 
-function fmtCurrency(n) { return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+function fmtCurrency(n) {
+  return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getCurrentWeekDates() {
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((day + 6) % 7));
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
+const SCORE_LABELS = ['', 'Just Started', 'Getting There', 'Solid', 'Performance Ready', 'Mastered'];
+
+const CATEGORY_COLORS = {
+  technique: { bg: 'rgba(212,148,58,0.15)', color: 'var(--accent)' },
+  theory: { bg: 'rgba(96,165,250,0.15)', color: 'var(--blue)' },
+  repertoire: { bg: 'rgba(74,222,128,0.15)', color: 'var(--green)' },
+  performance: { bg: 'rgba(192,132,252,0.15)', color: 'var(--purple)' },
+  'ear training': { bg: 'rgba(251,191,36,0.15)', color: 'var(--yellow)' }
+};
+
+function toggleSection(sectionId) {
+  if (expandedSections.has(sectionId)) expandedSections.delete(sectionId);
+  else expandedSections.add(sectionId);
+  render();
+}
+
+function makeExpandableSection(sectionId, icon, label, hint, contentFn) {
+  const isOpen = expandedSections.has(sectionId);
+  const section = h('div', { class: 'section-divider' },
+    h('div', { class: 'expandable' + (isOpen ? ' open' : '') },
+      h('div', { class: 'section-header' },
+        h('span', { class: 'section-icon' }, icon),
+        h('span', { class: 'section-label' }, label),
+        hint ? h('span', { class: 'section-hint' }, hint) : '',
+        h('span', { class: 'expand-chevron' }, '\u25BC')
+      ),
+      h('div', { class: 'expand-body' },
+        h('div', { style: { padding: '0 0 10px' } }, contentFn())
+      )
+    )
+  );
+  section.querySelector('.section-header').addEventListener('click', () => toggleSection(sectionId));
+  return section;
+}
+
+function getNextLessonText(student) {
+  // Check program records first, then fall back to profile
+  const programs = Object.values(student.programs || {});
+  const privateLesson = programs.find(p => p.type === 'private');
+  const day = (privateLesson && privateLesson.lessonDay) || (student.profile && student.profile.lessonDay);
+  const time = (privateLesson && privateLesson.lessonTime) || (student.profile && student.profile.lessonTime);
+  if (!day || !time) return null;
+  return day + ' ' + time;
+}
+
+function getEnsembleNames(student) {
+  const programs = Object.values(student.programs || {});
+  return programs.filter(p => p.type === 'ensemble').map(p => p.name);
+}
+
+/* ===== CHILD SECTION RENDERERS ===== */
+
+function renderChildPractice(key, student) {
+  const practice = student.practice || {};
+  const weekDates = getCurrentWeekDates();
+  const dayNames = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const today = new Date();
+  const currentWeekId = getWeekId(today);
+  const weekData = practice[currentWeekId] || {};
+  const streak = calcStreak(practice);
+  const monthly = calcMonthlyDays(practice);
+
+  return h('div', {},
+    h('div', { class: 'practice-grid' },
+      ...weekDates.map((date, i) => {
+        const dayName = dayNames[i];
+        const checked = weekData[dayName] || false;
+        const isFuture = date > today;
+        const isToday = date.toDateString() === today.toDateString();
+        return h('div', { class: 'practice-day' },
+          h('div', { class: 'practice-day-label', style: isToday ? { color: 'var(--accent)' } : {} }, dayLabels[i]),
+          h('div', { style: { fontSize: '10px', color: 'var(--muted)', marginBottom: '4px' } }, '' + date.getDate()),
+          h('div', { class: 'practice-check' + (checked ? ' checked' : '') + (isFuture ? ' future' : '') },
+            checked ? '\u2713' : '')
+        );
+      })
+    ),
+    h('div', { style: { fontSize: '12px', color: 'var(--muted)', marginTop: '6px' } },
+      monthly.practiced + ' of ' + monthly.elapsed + ' days this month \u00B7 ' + streak + ' day streak')
+  );
+}
+
+function renderChildAssignment(key, student) {
+  const today = new Date();
+  const currentWeekId = getWeekId(today);
+  const itinerary = student.itinerary && student.itinerary[currentWeekId];
+  const lessons = Object.values(student.lessons || {}).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const latest = lessons[0];
+
+  const parts = [];
+
+  if (itinerary && itinerary.text) {
+    parts.push(h('div', { class: 'assignment-block' },
+      h('div', { class: 'assignment-label' }, 'This Week\'s Plan'),
+      h('p', { class: 'assignment-text', style: { whiteSpace: 'pre-wrap' } }, itinerary.text)
+    ));
+  }
+
+  if (latest && latest.practicePlan) {
+    const plan = latest.practicePlan;
+    if (plan.warmup) parts.push(h('div', { class: 'assignment-block' },
+      h('div', { class: 'assignment-label' }, 'Warm-up'), h('p', { class: 'assignment-text' }, plan.warmup)));
+    if (plan.technical) parts.push(h('div', { class: 'assignment-block' },
+      h('div', { class: 'assignment-label' }, 'Technical'), h('p', { class: 'assignment-text' }, plan.technical)));
+    if (plan.repertoire) parts.push(h('div', { class: 'assignment-block' },
+      h('div', { class: 'assignment-label' }, 'Repertoire'), h('p', { class: 'assignment-text' }, plan.repertoire)));
+    if (plan.goal) parts.push(h('div', { class: 'assignment-block', style: { background: 'var(--accent-glow)', border: '1px solid rgba(212,148,58,0.2)' } },
+      h('div', { class: 'assignment-label' }, 'Goal'), h('p', { class: 'assignment-text' }, plan.goal)));
+  }
+
+  if (parts.length === 0) {
+    parts.push(h('p', { style: { color: 'var(--muted)', fontSize: '12px' } }, 'No assignment this week.'));
+  }
+
+  return h('div', {}, ...parts);
+}
+
+function renderChildProgress(key, student) {
+  const songScores = student.songScores
+    ? Object.entries(student.songScores).sort((a, b) => (b[1].lastUpdated || '').localeCompare(a[1].lastUpdated || ''))
+    : [];
+  const milestones = Object.entries(student.milestones || {})
+    .map(([id, m]) => ({ id, ...m }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (songScores.length === 0 && milestones.length === 0) {
+    return h('p', { style: { color: 'var(--muted)', fontSize: '12px' } }, 'No scores or milestones recorded yet.');
+  }
+
+  const parts = [];
+
+  if (songScores.length > 0) {
+    parts.push(h('div', {},
+      ...songScores.map(([, song]) =>
+        h('div', { class: 'song-row' },
+          h('div', { class: 'song-info' },
+            h('div', { class: 'song-title' }, song.title),
+            h('div', { class: 'song-artist' }, song.artist || '')
+          ),
+          h('div', { style: { textAlign: 'right', flexShrink: '0' } },
+            h('div', { class: 'song-stars' },
+              ...[1,2,3,4,5].map(n =>
+                h('span', { class: 'song-star', style: { color: n <= (song.score || 0) ? 'var(--accent)' : 'var(--border)' } },
+                  n <= (song.score || 0) ? '\u2605' : '\u2606')
+              )
+            ),
+            h('div', { class: 'song-score-label' }, SCORE_LABELS[song.score] || '')
+          )
+        )
+      )
+    ));
+  }
+
+  if (milestones.length > 0) {
+    parts.push(h('div', { style: { marginTop: songScores.length > 0 ? '12px' : '0' } },
+      h('div', { style: { fontSize: '10px', fontWeight: '600', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' } }, 'Milestones'),
+      h('div', { class: 'timeline' },
+        ...milestones.map(m => {
+          const cc = CATEGORY_COLORS[m.category] || CATEGORY_COLORS.technique;
+          return h('div', { class: 'timeline-item completed' },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2px' } },
+              h('div', { style: { fontWeight: '600', fontSize: '13px' } }, m.title),
+              h('span', { style: { fontSize: '10px', color: 'var(--muted)', flexShrink: '0', marginLeft: '8px' } }, fmtDate(m.date))
+            ),
+            h('span', { class: 'badge', style: { background: cc.bg, color: cc.color } }, m.category),
+            m.description ? h('p', { style: { fontSize: '11px', color: 'var(--muted)', lineHeight: '1.4', marginTop: '2px' } }, m.description) : ''
+          );
+        })
+      )
+    ));
+  }
+
+  return h('div', {}, ...parts);
+}
+
+function renderChildPayments(key, student) {
+  const balance = getBalance(student);
+  const pending = hasPendingPayment(student);
+  const parts = [];
+
+  // Pay Now button
+  if (balance > 0 && !pending) {
+    parts.push(h('button', {
+      style: {
+        width: '100%', padding: '10px', borderRadius: '10px',
+        border: 'none', background: 'var(--accent)', color: '#000',
+        fontWeight: '700', fontSize: '14px', cursor: 'pointer', marginBottom: '8px'
+      },
+      onClick: (e) => { e.stopPropagation(); openPayModal(key); }
+    }, 'Pay Now \u2014 ' + fmtCurrency(balance)));
+  }
+
+  // Pending payment badge
+  if (pending) {
+    const pendingId = getPendingPaymentId(student);
+    const pendingPay = student.payments[pendingId];
+    parts.push(h('div', {
+      style: {
+        padding: '10px 14px', borderRadius: '10px',
+        background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'
+      }
+    },
+      h('div', {},
+        h('div', { style: { fontSize: '12px', fontWeight: '600', color: 'var(--yellow)' } }, 'Payment Pending'),
+        h('div', { style: { fontSize: '11px', color: 'var(--muted)' } },
+          fmtCurrency(pendingPay.amount) + ' via ' + (pendingPay.method || 'Unknown') + ' \u2014 awaiting confirmation')
+      ),
+      h('button', {
+        style: {
+          background: 'transparent', border: '1px solid var(--border)', borderRadius: '6px',
+          padding: '4px 10px', color: 'var(--muted)', fontSize: '10px', cursor: 'pointer', flexShrink: '0'
+        },
+        onClick: (e) => { e.stopPropagation(); cancelPendingPayment(key, pendingId); }
+      }, 'Cancel')
+    ));
+  }
+
+  // Payment history
+  const payments = Object.entries(student.payments || {})
+    .map(([id, p]) => ({ id, ...p }))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  if (payments.length > 0) {
+    parts.push(h('div', { style: { marginTop: '4px' } },
+      ...payments.map(pay => {
+        const statusStyle = pay.status === 'confirmed'
+          ? { bg: 'rgba(74,222,128,0.15)', color: 'var(--green)', label: 'Confirmed' }
+          : pay.status === 'pending'
+          ? { bg: 'rgba(251,191,36,0.15)', color: 'var(--yellow)', label: 'Pending' }
+          : pay.status === 'rejected'
+          ? { bg: 'rgba(248,113,113,0.15)', color: 'var(--red)', label: 'Rejected' }
+          : { bg: 'var(--accent-glow)', color: 'var(--accent)', label: pay.status || 'Paid' };
+        return h('div', { class: 'payment-row' },
+          h('div', {},
+            h('div', { class: 'payment-amount' }, fmtCurrency(pay.amount)),
+            h('div', { class: 'payment-date' }, fmtDate(pay.date)),
+            pay.method ? h('div', { class: 'payment-method' }, pay.method) : ''
+          ),
+          h('span', { class: 'badge', style: { background: statusStyle.bg, color: statusStyle.color } }, statusStyle.label)
+        );
+      })
+    ));
+  } else if (!pending && balance <= 0) {
+    parts.push(h('p', { style: { color: 'var(--muted)', fontSize: '12px' } }, 'No payment history yet.'));
+  }
+
+  return h('div', {}, ...parts);
+}
+
+function renderChildLessons(key, student) {
+  const lessons = Object.entries(student.lessons || {})
+    .map(([id, l]) => ({ id, ...l }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5);
+
+  if (lessons.length === 0) {
+    return h('p', { style: { color: 'var(--muted)', fontSize: '12px' } }, 'No lesson notes yet.');
+  }
+
+  return h('div', {},
+    ...lessons.map(l => {
+      const lessonSectionId = key + '-lesson-' + l.id;
+      const isOpen = expandedSections.has(lessonSectionId);
+      const card = h('div', { class: 'lesson-card-parent expandable' + (isOpen ? ' open' : '') },
+        h('div', { class: 'expand-header' },
+          h('div', { style: { flex: '1', minWidth: '0' } },
+            h('div', { class: 'lesson-date-label' }, fmtDate(l.date)),
+            h('div', { class: 'lesson-title-text' }, l.title)
+          ),
+          h('span', { class: 'expand-chevron' }, '\u25BC')
+        ),
+        h('div', { class: 'expand-body' },
+          h('div', { style: { paddingTop: '6px' } },
+            h('p', { class: 'lesson-summary' }, l.summary),
+            l.keyConcepts && l.keyConcepts.length ? h('div', { class: 'lesson-concepts' },
+              ...l.keyConcepts.map(c => h('span', { class: 'concept-tag' }, c))
+            ) : ''
+          )
+        )
+      );
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSection(lessonSectionId);
+      });
+      return card;
+    })
+  );
+}
+
+/* ===== PAY NOW ===== */
+function openPayModal(studentKey) {
+  payModalStudent = studentKey;
+  render();
+}
+
+function closePayModal() {
+  payModalStudent = null;
+  render();
+}
+
+async function submitPendingPayment(studentKey, amount, method) {
+  const paymentId = 'pay-' + Date.now();
+  const payment = {
+    date: new Date().toISOString().split('T')[0],
+    amount: amount,
+    method: method,
+    status: 'pending',
+    note: 'Submitted by parent',
+    submittedAt: new Date().toISOString()
+  };
+  try {
+    await dbRef('students/' + studentKey + '/payments/' + paymentId).set(payment);
+    // Refresh local data
+    if (childrenData[studentKey]) {
+      if (!childrenData[studentKey].payments) childrenData[studentKey].payments = {};
+      childrenData[studentKey].payments[paymentId] = payment;
+    }
+    payModalStudent = null;
+    render();
+  } catch (e) {
+    console.error('Payment submit failed:', e);
+    alert('Failed to submit payment. Please try again.');
+  }
+}
+
+async function cancelPendingPayment(studentKey, paymentId) {
+  if (!confirm('Cancel this pending payment?')) return;
+  try {
+    await dbRef('students/' + studentKey + '/payments/' + paymentId).remove();
+    if (childrenData[studentKey] && childrenData[studentKey].payments) {
+      delete childrenData[studentKey].payments[paymentId];
+    }
+    render();
+  } catch (e) {
+    console.error('Cancel payment failed:', e);
+    alert('Failed to cancel payment.');
+  }
+}
 
 /* ===== RENDER ===== */
 function render() {
-  if (!parentData) return;
+  if (!parentData && !childrenKeys.length) return;
   const app = document.getElementById('app');
   const prevContent = app.querySelector('.content');
   const savedScroll = prevContent ? prevContent.scrollTop : 0;
   app.innerHTML = '';
+
+  const parentName = (parentData && parentData.profile && parentData.profile.name) || 'Parent';
 
   // Header
   app.appendChild(h('div', { class: 'header' },
@@ -269,7 +999,7 @@ function render() {
       h('span', { class: 'logo-sub' }, 'PARENT DASHBOARD')
     ),
     h('div', { class: 'header-user' },
-      h('span', {}, parentData.profile.name),
+      h('span', {}, parentName),
       h('button', { class: 'header-logout', onClick: logout }, 'Sign Out')
     )
   ));
@@ -287,16 +1017,31 @@ function render() {
     const attRate = getAttendanceRate(student);
     const balance = getBalance(student);
     const p = student.profile || {};
+    const pending = hasPendingPayment(student);
+    const nextLesson = getNextLessonText(student);
+    const ensembles = getEnsembleNames(student);
 
-    content.appendChild(h('div', { class: 'child-card' },
-      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' } },
+    // Build meta line: instrument + programs
+    const programNames = Object.values(student.programs || {}).map(pr => pr.name).filter(Boolean).join(', ');
+    let metaText = (p.instrument || '');
+    if (programNames) metaText += ' \u00B7 ' + programNames;
+
+    const card = h('div', { class: 'child-card' },
+      // Header row
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2px' } },
         h('div', {},
           h('div', { class: 'child-name' }, p.name || key),
-          h('div', { class: 'child-meta' }, (p.instrument || '') + ' \u00B7 ' + Object.values(student.programs || {}).map(pr => pr.name).join(', '))
+          h('div', { class: 'child-meta' }, metaText),
+          nextLesson ? h('div', { class: 'next-lesson' }, '\u{1F4C5} Next lesson: ' + nextLesson) : '',
+          ensembles.length > 0 ? h('div', { style: { fontSize: '11px', color: 'var(--muted)', marginTop: '1px' } },
+            'Member of: ' + ensembles.join(', ')) : ''
         ),
-        h('span', { class: 'badge ' + (balance > 0 ? 'badge-red' : 'badge-green') }, balance > 0 ? 'Balance Due' : 'Paid Up')
+        h('span', { class: 'badge ' + (balance > 0 ? 'badge-red' : 'badge-green') },
+          balance > 0 ? 'Balance Due' : 'Paid Up')
       ),
-      h('div', { class: 'stats-row' },
+
+      // Stats row
+      h('div', { class: 'stats-row', style: { marginTop: '10px' } },
         h('div', { class: 'stat-box' },
           h('div', { class: 'stat-label' }, 'Attendance'),
           h('div', { class: 'stat-value', style: { color: attRate >= 80 ? 'var(--green)' : attRate >= 60 ? 'var(--yellow)' : 'var(--red)' } }, attRate + '%'),
@@ -318,7 +1063,28 @@ function render() {
           h('div', { class: 'stat-sub' }, balance > 0 ? 'outstanding' : 'all clear')
         )
       )
-    ));
+    );
+
+    // Expandable sections
+    const paymentCount = Object.keys(student.payments || {}).length;
+    const payHint = balance > 0 && !pending ? fmtCurrency(balance) + ' due' : pending ? 'pending' : '';
+
+    card.appendChild(makeExpandableSection(key + '-practice', '\u{1F3B5}', 'Practice This Week',
+      streak > 0 ? streak + ' day streak' : '', () => renderChildPractice(key, student)));
+
+    card.appendChild(makeExpandableSection(key + '-assignments', '\u{1F4CB}', 'This Week\'s Assignment',
+      '', () => renderChildAssignment(key, student)));
+
+    card.appendChild(makeExpandableSection(key + '-progress', '\u{2B50}', 'Progress & Songs',
+      '', () => renderChildProgress(key, student)));
+
+    card.appendChild(makeExpandableSection(key + '-payments', '\u{1F4B3}', 'Payments',
+      payHint, () => renderChildPayments(key, student)));
+
+    card.appendChild(makeExpandableSection(key + '-lessons', '\u{1F4D6}', 'Recent Lessons',
+      '', () => renderChildLessons(key, student)));
+
+    content.appendChild(card);
   });
 
   if (Object.keys(childrenData).length === 0) {
@@ -329,6 +1095,75 @@ function render() {
 
   app.appendChild(content);
   content.scrollTop = savedScroll;
+
+  // Pay Now modal
+  if (payModalStudent && childrenData[payModalStudent]) {
+    renderPayModal(payModalStudent);
+  }
+}
+
+function renderPayModal(studentKey) {
+  const student = childrenData[studentKey];
+  const balance = getBalance(student);
+  const name = (student.profile || {}).name || studentKey;
+
+  const overlay = h('div', { class: 'modal-overlay', onClick: (e) => { if (e.target === overlay) closePayModal(); } },
+    h('div', { class: 'modal' },
+      h('div', { class: 'modal-title' }, 'Pay Now'),
+      h('div', { class: 'modal-sub' }, 'Balance for ' + name + ': ' + fmtCurrency(balance)),
+
+      h('div', {
+        class: 'pay-option',
+        onClick: () => {
+          navigator.clipboard.writeText('9168892921').then(() => {
+            alert('Phone number copied! Open your bank app and send via Zelle to 916-889-2921.');
+          });
+          submitPendingPayment(studentKey, balance, 'Zelle');
+        }
+      },
+        h('div', { class: 'pay-icon' }, '\u{1F7E3}'),
+        h('div', {},
+          h('div', { class: 'pay-name' }, 'Zelle'),
+          h('div', { class: 'pay-detail' }, 'Send to 916-889-2921 via your bank app'),
+          h('div', { style: { fontSize: '10px', color: 'var(--accent)', marginTop: '2px' } }, 'Tap to copy number')
+        )
+      ),
+
+      h('a', {
+        class: 'pay-option',
+        href: 'https://venmo.com/u/studiosimon',
+        target: '_blank',
+        onClick: () => { submitPendingPayment(studentKey, balance, 'Venmo'); }
+      },
+        h('div', { class: 'pay-icon' }, '\u{1F535}'),
+        h('div', {},
+          h('div', { class: 'pay-name' }, 'Venmo'),
+          h('div', { class: 'pay-detail' }, '@studiosimon')
+        )
+      ),
+
+      h('a', {
+        class: 'pay-option',
+        href: 'https://paypal.me/simonotog/' + balance.toFixed(2),
+        target: '_blank',
+        onClick: () => { submitPendingPayment(studentKey, balance, 'PayPal'); }
+      },
+        h('div', { class: 'pay-icon' }, '\u{1F7E1}'),
+        h('div', {},
+          h('div', { class: 'pay-name' }, 'PayPal'),
+          h('div', { class: 'pay-detail' }, 'paypal.me/simonotog')
+        )
+      ),
+
+      h('div', { style: { marginTop: '16px', padding: '12px', background: 'var(--surface2)', borderRadius: '10px', fontSize: '12px', color: 'var(--muted)', lineHeight: '1.5' } },
+        'After sending payment, tap a method above to log it. Your teacher will confirm receipt.'
+      ),
+
+      h('button', { class: 'modal-close', onClick: closePayModal }, 'Cancel')
+    )
+  );
+
+  document.getElementById('app').appendChild(overlay);
 }
 
 /* ===== SERVICE WORKER ===== */
