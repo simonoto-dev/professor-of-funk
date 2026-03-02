@@ -2,6 +2,14 @@
   "projects": {
     "default": "professor-of-funk"
   },
-  "targets": {},
+  "targets": {
+    "professor-of-funk": {
+      "hosting": {
+        "professor-of-funk": [
+          "professor-of-funk"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

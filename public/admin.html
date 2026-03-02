@@ -108,6 +108,7 @@ select.input{appearance:auto;}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="auth-gate" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
@@ -268,11 +269,17 @@ async function ensureParentRecord(studentKey, parentName, parentEmail, parentAcc
   return authUid;
 }
 
-// Auto-login if session still valid
+// Auto-login only if session belongs to the admin account
+const ADMIN_UID = 'FRLOpQbA69dhh7pCvx45fdPfkbz1';
 firebase.auth().onAuthStateChanged(user => {
   if (user && !adminUser) {
-    adminUser = user;
-    showApp();
+    if (user.uid === ADMIN_UID) {
+      adminUser = user;
+      showApp();
+    } else {
+      // Wrong account (e.g. student session) — sign out and show login
+      firebase.auth().signOut();
+    }
   }
 });
 function dbRef(path) { return fbDb.ref(DB_ROOT + "/" + path); }
@@ -297,6 +304,11 @@ async function fbLoad(key, fallback) {
 
 async function fbSave(key, val) {
   try { await dbRef(key).set(val); } catch(e) { console.warn("Firebase write failed for " + key, e); }
+}
+
+function localToday() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
 function onDataChange(key, callback) {
@@ -382,11 +394,85 @@ let paymentStudent = null;
 let showAddStudent = false;
 let showAddEnsemble = false;
 let editingStudent = null;   // key of student being edited, or null
+let editStudentPrograms = {};  // { programId: true/false } — tracks program toggles in JS, survives re-renders
 let editingEnsemble = null;  // key of ensemble being edited, or null
 let editingSong = null;      // { ensKey, songId } or null
 let addingSongTo = null;     // ensemble key, or null
 let assigningSong = null;    // { ensKey, songId, songTitle } or null
 let attendanceProgram = null; // selected program filter for attendance tab
+let customAttendanceDates = new Set(); // extra dates added via date picker
+let lessonStudent = '';      // selected student in Lessons tab
+let addingSongScore = false; // showing add song score form
+let editingItinerary = null; // { studentKey, weekId } being edited, or null
+
+/* ===== GMAIL INTEGRATION =====
+ * To activate Gmail draft creation:
+ * 1. Go to https://console.cloud.google.com/apis/credentials?project=professor-of-funk
+ * 2. Enable the Gmail API at https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=professor-of-funk
+ * 3. Create an OAuth Client ID (Web application type)
+ *    - Authorized JavaScript origins: https://professoroffunk.com, https://professor-of-funk.web.app, http://localhost:5000
+ * 4. Configure OAuth consent screen: add scope https://www.googleapis.com/auth/gmail.compose
+ * 5. Replace 'YOUR_CLIENT_ID_HERE' below with the Client ID (looks like 409198973109-xxxx.apps.googleusercontent.com)
+ */
+let gmailAccessToken = null;
+const GMAIL_CLIENT_ID = '409198973109-e2od2hm2qk631nkd59uvsknsajku3715.apps.googleusercontent.com';
+const GMAIL_SCOPES = 'https://www.googleapis.com/auth/gmail.compose';
+
+function connectGmail() {
+  if (GMAIL_CLIENT_ID === 'YOUR_CLIENT_ID_HERE') {
+    alert('Gmail integration is not configured yet.\n\nTo activate it, Simon needs to:\n1. Create an OAuth Client ID in Google Cloud Console\n2. Replace YOUR_CLIENT_ID_HERE in admin.html\n\nSee the comments in the source code for full instructions.');
+    return;
+  }
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GMAIL_CLIENT_ID,
+    scope: GMAIL_SCOPES,
+    callback: (response) => {
+      if (response.access_token) {
+        gmailAccessToken = response.access_token;
+        render();
+      }
+    },
+  });
+  client.requestAccessToken();
+}
+
+async function createGmailDraft(to, subject, htmlBody) {
+  const email = [
+    'Content-Type: text/html; charset="UTF-8"',
+    'MIME-Version: 1.0',
+    'To: ' + to,
+    'Subject: ' + subject,
+    '',
+    htmlBody
+  ].join('\r\n');
+
+  const raw = btoa(unescape(encodeURIComponent(email)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + gmailAccessToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ message: { raw } })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json();
+    throw new Error(err.error?.message || 'Gmail API error');
+  }
+  return resp.json();
+}
+
+/* ===== INVOICING STATE ===== */
+// Default to previous month (invoicing on the 1st for last month's classes)
+const _invDate = new Date();
+_invDate.setMonth(_invDate.getMonth() - 1);
+let invoiceMonth = _invDate.getMonth();
+let invoiceYear = _invDate.getFullYear();
+let invoicePreviewFamily = null;
+let invoiceStatus = null;
 
 /* ===== HELPERS ===== */
 function h(tag, attrs, ...children) {
@@ -423,17 +509,308 @@ function computeStudentBilling(studentKey) {
   let totalTuition = 0, totalClasses = 0;
   const perProgram = {};
   Object.entries(s.programs || {}).forEach(([pid, prog]) => {
-    const attended = Object.values((s.attendance || {})[pid] || {})
-      .filter(a => a.present).length;
+    const attendanceRecords = Object.values((s.attendance || {})[pid] || {})
+      .filter(a => a.present);
+    const attended = attendanceRecords.length;
     totalClasses += attended;
-    const tuition = attended * prog.rate;
+    // Use rateSnapshot from each attendance record when available, fall back to program rate
+    const tuition = attendanceRecords.reduce((sum, a) => sum + (a.rateSnapshot || prog.rate || 0), 0);
     totalTuition += tuition;
     perProgram[pid] = { attended, tuition, rate: prog.rate, name: prog.name };
   });
-  const totalPaid = Object.values(s.payments || {}).reduce((sum, p) => sum + (p.amount || 0), 0);
+  // Only count confirmed payments (status: "confirmed" or no status for legacy records)
+  const totalPaid = Object.values(s.payments || {})
+    .filter(p => !p.status || p.status === 'confirmed')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
   const tuitionOwed = totalTuition - totalPaid;
   const invoiceStatus = tuitionOwed > 0 ? 'Unpaid' : tuitionOwed < 0 ? 'Overpaid' : 'Paid';
   return { totalTuition, totalPaid, tuitionOwed, invoiceStatus, totalClasses, perProgram };
+}
+
+function computeMonthlyBilling(studentKey, year, month) {
+  const s = localData.students[studentKey];
+  if (!s) return { programs: [], totalThisMonth: 0, paymentsThisMonth: 0, previousBalance: 0, balanceDue: 0 };
+
+  // Classes attended this month per program
+  const programs = [];
+  let totalThisMonth = 0;
+  Object.entries(s.programs || {}).forEach(([pid, prog]) => {
+    const attendance = (s.attendance || {})[pid] || {};
+    let classesThisMonth = 0;
+    Object.entries(attendance).forEach(([dateStr, a]) => {
+      if (!a.present) return;
+      const d = new Date(dateStr + 'T12:00:00');
+      if (d.getFullYear() === year && d.getMonth() === month) classesThisMonth++;
+    });
+    if (classesThisMonth > 0) {
+      const subtotal = classesThisMonth * (prog.rate || 0);
+      totalThisMonth += subtotal;
+      programs.push({ name: prog.name, classesThisMonth, rate: prog.rate || 0, subtotal });
+    }
+  });
+
+  // Payments this month (confirmed only)
+  let paymentsThisMonth = 0;
+  Object.values(s.payments || {}).forEach(p => {
+    if (p.status && p.status !== 'confirmed') return;
+    const d = new Date((p.date || '') + 'T12:00:00');
+    if (d.getFullYear() === year && d.getMonth() === month) paymentsThisMonth += (p.amount || 0);
+  });
+
+  // All-time balance for "previous balance" context
+  const allTime = computeStudentBilling(studentKey);
+  const balanceDue = allTime.tuitionOwed;
+  const previousBalance = balanceDue - totalThisMonth + paymentsThisMonth;
+
+  return { programs, totalThisMonth, paymentsThisMonth, previousBalance, balanceDue };
+}
+
+/* ===== OUTSTANDING BILLING =====
+ * Computes unpaid classes by using total payments as credit against
+ * the oldest classes first. Classes not covered by credit are unpaid.
+ */
+function computeOutstandingBilling(studentKey) {
+  const s = localData.students[studentKey];
+  if (!s) return { classes: [], totalCharges: 0, balanceDue: 0, periodLabel: '' };
+
+  // Gather all attended classes with dates
+  const allClasses = [];
+  Object.entries(s.programs || {}).forEach(([pid, prog]) => {
+    const attendance = (s.attendance || {})[pid] || {};
+    Object.entries(attendance).forEach(([dateStr, a]) => {
+      if (!a.present) return;
+      const rate = a.rateSnapshot || prog.rate || 0;
+      allClasses.push({ date: dateStr, programName: prog.name, rate });
+    });
+  });
+
+  // Sort oldest first
+  allClasses.sort((a, b) => a.date.localeCompare(b.date));
+
+  // Total payments as credit — confirmed only (matches computeStudentBilling)
+  let credit = Object.values(s.payments || {})
+    .filter(p => !p.status || p.status === 'confirmed')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  // Consume credit against oldest classes first; remainder = unpaid
+  const unpaidClasses = [];
+  for (const cls of allClasses) {
+    if (credit >= cls.rate) {
+      credit -= cls.rate;
+    } else {
+      unpaidClasses.push(cls);
+      credit = 0;
+    }
+  }
+
+  // Authoritative balance from existing billing logic
+  const balanceDue = computeStudentBilling(studentKey).tuitionOwed;
+  const totalCharges = unpaidClasses.reduce((sum, c) => sum + c.rate, 0);
+
+  // Derive period label from unpaid class date range
+  let periodLabel = '';
+  if (unpaidClasses.length > 0) {
+    const first = new Date(unpaidClasses[0].date + 'T12:00:00');
+    const last = new Date(unpaidClasses[unpaidClasses.length - 1].date + 'T12:00:00');
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const fmtYear = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (first.getTime() === last.getTime()) {
+      periodLabel = fmtYear(first);
+    } else if (first.getFullYear() === last.getFullYear()) {
+      periodLabel = fmt(first) + ' \u2013 ' + fmtYear(last);
+    } else {
+      periodLabel = fmtYear(first) + ' \u2013 ' + fmtYear(last);
+    }
+  }
+
+  return { classes: unpaidClasses, totalCharges, balanceDue, periodLabel };
+}
+
+/* ===== FAMILY BILLING =====
+ * Groups students by parentEmail and computes combined outstanding billing.
+ * Returns one entry per family, with per-child breakdowns.
+ */
+function groupStudentsByParent(studentKeys) {
+  const families = {};
+  const students = localData.students;
+  for (const key of studentKeys) {
+    const s = students[key];
+    if (!s) continue;
+    // Normalize: use first email if comma-separated
+    const rawEmail = (s.profile.parentEmail || '').trim();
+    const email = rawEmail.split(',')[0].trim().toLowerCase();
+    if (!email) continue;
+    if (!families[email]) {
+      families[email] = {
+        parentEmail: rawEmail,
+        parentName: s.profile.parentName || '',
+        studentKeys: []
+      };
+    }
+    families[email].studentKeys.push(key);
+  }
+  return families;
+}
+
+function computeFamilyBilling(studentKeys) {
+  const children = [];
+  let totalCharges = 0;
+  let balanceDue = 0;
+  let allDates = [];
+
+  for (const key of studentKeys) {
+    const s = localData.students[key];
+    if (!s) continue;
+    const ob = computeOutstandingBilling(key);
+    if (ob.classes.length > 0 || ob.balanceDue !== 0) {
+      // Tag each class with student name for display
+      const taggedClasses = ob.classes.map(c => ({ ...c, studentName: s.profile.name }));
+      children.push({
+        name: s.profile.name,
+        key,
+        classes: taggedClasses,
+        totalCharges: ob.totalCharges,
+        balanceDue: ob.balanceDue
+      });
+      totalCharges += ob.totalCharges;
+      balanceDue += ob.balanceDue;
+      allDates.push(...ob.classes.map(c => c.date));
+    }
+  }
+
+  // Combined period label
+  allDates.sort();
+  let periodLabel = '';
+  if (allDates.length > 0) {
+    const first = new Date(allDates[0] + 'T12:00:00');
+    const last = new Date(allDates[allDates.length - 1] + 'T12:00:00');
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const fmtYear = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (first.getTime() === last.getTime()) {
+      periodLabel = fmtYear(first);
+    } else if (first.getFullYear() === last.getFullYear()) {
+      periodLabel = fmt(first) + ' \u2013 ' + fmtYear(last);
+    } else {
+      periodLabel = fmtYear(first) + ' \u2013 ' + fmtYear(last);
+    }
+  }
+
+  return { children, totalCharges, balanceDue, periodLabel };
+}
+
+/* ===== INVOICE TEMPLATE =====
+ * Edit this function to change how invoices look.
+ * It receives a data object and returns an HTML string.
+ * Changing this will NOT break any billing logic or email sending.
+ *
+ * Data shape:
+ *   businessName, businessEmail, invoiceDate,
+ *   children: [{ name, classes: [{ date, programName, rate }], totalCharges, balanceDue }],
+ *   parentName, totalCharges, balanceDue, periodLabel
+ */
+function buildInvoiceHtml(data) {
+  const f = "font-family:Georgia,'Times New Roman',serif;";
+  const fmtDate = ds => {
+    const d = new Date(ds + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const multiChild = data.children.length > 1;
+  const allClasses = data.children.flatMap(ch => ch.classes);
+  const studentNames = data.children.map(ch => ch.name).join(' & ');
+
+  // Build line item rows — with child name headers for multi-child families
+  let lineItemRows = '';
+  if (allClasses.length === 0) {
+    lineItemRows = `<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;font-style:italic;${f}">No outstanding classes</td></tr>`;
+  } else if (multiChild) {
+    for (const child of data.children) {
+      if (child.classes.length === 0) continue;
+      lineItemRows += `<tr><td colspan="3" style="padding:10px 12px 4px;${f}font-weight:700;font-size:14px;color:#D4943A;border-bottom:1px solid #D4943A;">${child.name}</td></tr>`;
+      for (const c of child.classes) {
+        lineItemRows += `<tr>
+          <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;${f}color:#666;font-size:13px;">${fmtDate(c.date)}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;${f}font-size:13px;">${c.programName}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:right;${f}font-size:13px;">$${c.rate.toFixed(2)}</td>
+        </tr>`;
+      }
+      lineItemRows += `<tr>
+        <td colspan="2" style="padding:4px 12px;${f}font-size:13px;font-weight:600;text-align:right;">Subtotal - ${child.name}</td>
+        <td style="padding:4px 12px;text-align:right;${f}font-size:13px;font-weight:600;">$${child.totalCharges.toFixed(2)}</td>
+      </tr>`;
+    }
+  } else {
+    for (const c of allClasses) {
+      lineItemRows += `<tr>
+        <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;${f}color:#666;font-size:13px;">${fmtDate(c.date)}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;${f}font-size:13px;">${c.programName}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:right;${f}font-size:13px;">$${c.rate.toFixed(2)}</td>
+      </tr>`;
+    }
+  }
+
+  return `
+  <div style="${f}max-width:600px;margin:0 auto;color:#1a1a1a;">
+    <!-- HEADER -->
+    <div style="border-bottom:3px solid #D4943A;padding-bottom:16px;margin-bottom:24px;">
+      <div style="font-size:28px;font-weight:700;color:#D4943A;${f}">Professor of Funk</div>
+      <div style="font-size:13px;color:#666;margin-top:4px;${f}">Music Education &mdash; Oakland, CA</div>
+    </div>
+
+    <!-- INVOICE META -->
+    <table style="width:100%;margin-bottom:24px;" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="vertical-align:top;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:4px;${f}">Invoice For</div>
+          <div style="font-size:16px;font-weight:600;${f}">${studentNames}</div>
+          <div style="font-size:13px;color:#666;${f}">${data.parentName}</div>
+        </td>
+        <td style="vertical-align:top;text-align:right;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:4px;${f}">Period</div>
+          <div style="font-size:16px;font-weight:600;${f}">${data.periodLabel || 'N/A'}</div>
+          <div style="font-size:13px;color:#666;${f}">${data.invoiceDate}</div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- LINE ITEMS -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <thead>
+        <tr style="background:#f8f8f8;">
+          <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#666;${f}">Date</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#666;${f}">Program</th>
+          <th style="padding:8px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#666;${f}">Amount</th>
+        </tr>
+      </thead>
+      <tbody>${lineItemRows}</tbody>
+    </table>
+
+    <!-- TOTALS -->
+    <table style="width:100%;border-collapse:collapse;border-top:2px solid #e5e7eb;" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="padding:6px 12px;font-size:14px;${f}">Total Charges (${allClasses.length} class${allClasses.length !== 1 ? 'es' : ''})</td>
+        <td style="padding:6px 12px;font-size:14px;text-align:right;${f}">$${data.totalCharges.toFixed(2)}</td>
+      </tr>
+      ${data.totalCharges > data.balanceDue && data.balanceDue >= 0 ? `
+      <tr>
+        <td style="padding:6px 12px;font-size:14px;color:#22c55e;${f}">Partial Payment Applied</td>
+        <td style="padding:6px 12px;font-size:14px;color:#22c55e;text-align:right;${f}">-$${(data.totalCharges - data.balanceDue).toFixed(2)}</td>
+      </tr>` : ''}
+      <tr>
+        <td colspan="2" style="padding:0;"><div style="border-top:2px solid #1a1a1a;margin-top:8px;"></div></td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;font-size:18px;font-weight:700;color:${data.balanceDue > 0 ? '#dc2626' : data.balanceDue < 0 ? '#2563eb' : '#22c55e'};${f}">${data.balanceDue >= 0 ? 'Balance Due' : 'Credit'}</td>
+        <td style="padding:8px 12px;font-size:18px;font-weight:700;text-align:right;color:${data.balanceDue > 0 ? '#dc2626' : data.balanceDue < 0 ? '#2563eb' : '#22c55e'};${f}">${data.balanceDue < 0 ? '-' : ''}$${Math.abs(data.balanceDue).toFixed(2)}</td>
+      </tr>
+    </table>
+
+    <!-- FOOTER -->
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#999;text-align:center;${f}">
+      <div>Questions? Reply to this email or contact ${data.businessEmail}</div>
+      <div style="margin-top:4px;">Thank you for being part of Professor of Funk!</div>
+    </div>
+  </div>`;
 }
 
 function getBalance(studentKey) {
@@ -518,10 +895,11 @@ function renderAddStudentForm() {
       h('div', { class: 'form-group' },
         h('label', {}, 'Instrument'),
         h('select', { class: 'input', id: 'new-student-instrument' },
-          h('option', { value: 'Guitar' }, 'Guitar'),
           h('option', { value: 'Bass' }, 'Bass'),
           h('option', { value: 'Drums' }, 'Drums'),
+          h('option', { value: 'Guitar' }, 'Guitar'),
           h('option', { value: 'Keys' }, 'Keys'),
+          h('option', { value: 'Trumpet' }, 'Trumpet'),
           h('option', { value: 'Vocals' }, 'Vocals'),
           h('option', { value: 'Other' }, 'Other')
         )
@@ -654,7 +1032,7 @@ function renderAddStudentForm() {
       const authUid = await createStudentAuth(key, accessCode);
 
       localData.students[key] = {
-        profile: { name, instrument, startDate: new Date().toISOString().slice(0, 10), accessCode, authUid: authUid || null, parentName, parentEmail, parentAuthUid: null, parentAccessCode: null, ageGrade, skillLevel, allergies, phone, emergencyContact, active: true },
+        profile: { name, instrument, startDate: localToday(), accessCode, authUid: authUid || null, parentName, parentEmail, parentAuthUid: null, parentAccessCode: null, ageGrade, skillLevel, allergies, phone, emergencyContact, active: true },
         programs,
         attendance: {},
         payments: {},
@@ -684,15 +1062,20 @@ function renderAddStudentForm() {
 function renderEditStudentForm(key) {
   const s = localData.students[key];
   const p = s.profile;
-  const instruments = ['Guitar','Bass','Drums','Keys','Vocals','Other'];
+  const instruments = ['Bass','Drums','Guitar','Keys','Trumpet','Vocals','Other'];
   const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const currentPrograms = s.programs || {};
-  const hasPrivate = !!currentPrograms.private;
+  // Initialize editStudentPrograms from current data when first opening
+  if (editStudentPrograms._key !== key) {
+    editStudentPrograms = { _key: key };
+    Object.keys(currentPrograms).forEach(pid => { editStudentPrograms[pid] = true; });
+  }
+  const hasPrivate = !!editStudentPrograms.private;
 
   return h('div', { class: 'card card-accent', style: { marginBottom: '16px' } },
     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
       h('div', { style: { fontWeight: '600', fontSize: '15px' } }, 'Edit Student — ' + p.name),
-      h('button', { class: 'btn-outline', onClick: () => { editingStudent = null; render(); } }, '✕ Cancel')
+      h('button', { class: 'btn-outline', onClick: () => { editingStudent = null; editStudentPrograms = {}; render(); } }, '✕ Cancel')
     ),
     h('div', { class: 'form-row' },
       h('div', { class: 'form-group' },
@@ -747,17 +1130,17 @@ function renderEditStudentForm(key) {
       h('label', {}, 'Programs'),
       h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' } },
         ...Object.entries(localData.ensembles).map(([ek, ev]) => {
-          const enrolled = !!currentPrograms[ek];
-          const rate = enrolled ? currentPrograms[ek].rate : 62.50;
-          return h('button', { class: 'btn-outline edit-prog-btn' + (enrolled ? ' active' : ''), 'data-pid': ek, 'data-type': 'ensemble', onClick: (e) => {
-            e.target.classList.toggle('active');
+          const enrolled = !!editStudentPrograms[ek];
+          const rate = (currentPrograms[ek] && currentPrograms[ek].rate) || 62.50;
+          return h('button', { class: 'btn-outline edit-prog-btn' + (enrolled ? ' active' : ''), 'data-pid': ek, 'data-type': 'ensemble', onClick: () => {
+            editStudentPrograms[ek] = !editStudentPrograms[ek];
+            render();
           }}, ev.info.name + ' ($' + rate + ')');
         }),
-        h('button', { class: 'btn-outline edit-prog-btn' + (hasPrivate ? ' active' : ''), 'data-pid': 'private', 'data-type': 'private', onClick: (e) => {
-          e.target.classList.toggle('active');
-          const priv = document.getElementById('edit-private-section');
-          if (priv) priv.style.display = e.target.classList.contains('active') ? '' : 'none';
-        }}, 'Private ($' + (hasPrivate ? currentPrograms.private.rate : 125) + ')')
+        h('button', { class: 'btn-outline edit-prog-btn' + (hasPrivate ? ' active' : ''), 'data-pid': 'private', 'data-type': 'private', onClick: () => {
+          editStudentPrograms.private = !editStudentPrograms.private;
+          render();
+        }}, 'Private ($' + (hasPrivate && currentPrograms.private ? currentPrograms.private.rate : 125) + ')')
       )
     ),
     h('div', { id: 'edit-private-section', style: { display: hasPrivate ? '' : 'none' } },
@@ -824,13 +1207,12 @@ function renderEditStudentForm(key) {
           await dbRef("meta/accessCodes/" + oldCode).remove();
           await fbSave("meta/accessCodes/" + accessCode, key);
         }
-        // Build new programs from toggle buttons
+        // Build new programs from JS toggle state (not DOM — survives re-renders)
         const newPrograms = {};
         const oldPrograms = s.programs || {};
-        document.querySelectorAll('.edit-prog-btn.active').forEach(btn => {
-          const pid = btn.getAttribute('data-pid');
-          const type = btn.getAttribute('data-type');
-          if (type === 'private') {
+        Object.keys(editStudentPrograms).forEach(pid => {
+          if (pid === '_key' || !editStudentPrograms[pid]) return;
+          if (pid === 'private') {
             const rate = parseFloat(document.getElementById('edit-student-private-rate').value) || 125;
             const day = document.getElementById('edit-student-day').value || null;
             const time = document.getElementById('edit-student-time').value.trim() || null;
@@ -841,6 +1223,10 @@ function renderEditStudentForm(key) {
             newPrograms[pid] = { type: 'ensemble', name: ens ? ens.info.name : pid, ensembleId: pid, rate: existingRate, lessonDay: null, lessonTime: null };
           }
         });
+        // Safety: warn if about to wipe all programs from a student that had them
+        if (Object.keys(newPrograms).length === 0 && Object.keys(oldPrograms).length > 0) {
+          if (!confirm('This will remove ALL programs from ' + p.name + '. Are you sure?')) return;
+        }
         // Sync ensemble memberships (remove from old, add to new)
         const oldName = p.name;
         Object.keys(oldPrograms).forEach(pid => {
@@ -874,6 +1260,7 @@ function renderEditStudentForm(key) {
         await fbSave("students/" + key + "/profile", s.profile);
         await fbSave("students/" + key + "/programs", newPrograms);
         editingStudent = null;
+        editStudentPrograms = {};
         render();
       }}, 'Save Changes'),
       h('button', { class: 'btn-outline', style: { color: 'var(--red)', borderColor: 'var(--red)' }, onClick: async () => {
@@ -891,13 +1278,14 @@ function renderEditStudentForm(key) {
         await dbRef("students/" + key).remove();
         delete localData.students[key];
         editingStudent = null;
+        editStudentPrograms = {};
         render();
       }}, 'Delete Student')
     )
   );
 }
 
-function renderStudents() {
+function renderStudentsSection() {
   const students = localData.students;
   const keys = Object.keys(students).filter(k => students[k].profile.active !== false);
   const inactiveKeys = Object.keys(students).filter(k => students[k].profile.active === false);
@@ -911,7 +1299,7 @@ function renderStudents() {
   }, 0);
   const outstanding = keys.reduce((sum, k) => sum + Math.max(0, computeStudentBilling(k).tuitionOwed), 0);
 
-  return h('div', { class: 'pad' },
+  return h('div', {},
     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
       h('h2', { class: 'section-title' }, 'Students'),
       !showAddStudent ? h('button', { class: 'btn btn-sm', onClick: () => { showAddStudent = true; render(); } }, '+ Add Student') : ''
@@ -1005,9 +1393,10 @@ function renderAttendance() {
       Object.keys((students[k].attendance || {})[attendanceProgram] || {}).forEach(d => dateSet.add(d));
     }
   });
+  customAttendanceDates.forEach(d => dateSet.add(d));
   const allDates = Array.from(dateSet).sort();
   const dates = allDates.slice(-8); // Show last 8 dates
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
 
   return h('div', { class: 'pad' },
     h('h2', { class: 'section-title' }, 'Attendance'),
@@ -1027,8 +1416,8 @@ function renderAttendance() {
       }, 'All')
     ),
 
-    // Mark Today button (only for non-All view)
-    !isAllView ? h('div', { style: { marginBottom: '12px' } },
+    // Mark Today button + Add Date picker (only for non-All view)
+    !isAllView ? h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '12px' } },
       h('button', { class: 'btn btn-sm', onClick: () => {
         filteredKeys.forEach(k => {
           if (!students[k].attendance) students[k].attendance = {};
@@ -1039,7 +1428,15 @@ function renderAttendance() {
           }
         });
         render();
-      }}, 'Mark All Present Today (' + fmtDate(today) + ')')
+      }}, 'Mark All Present Today (' + fmtDate(today) + ')'),
+      h('input', { type: 'date', id: 'add-date-input', class: 'input', value: today, style: { width: '150px', padding: '5px 8px', fontSize: '12px' } }),
+      h('button', { class: 'btn-outline', style: { padding: '5px 12px', fontSize: '12px' }, onClick: () => {
+        const dateInput = document.getElementById('add-date-input');
+        if (dateInput && dateInput.value) {
+          customAttendanceDates.add(dateInput.value);
+          render();
+        }
+      }}, '+ Add Date')
     ) : '',
 
     // Attendance grid
@@ -1188,6 +1585,12 @@ function renderPayments() {
             h('input', { class: 'input', id: 'pay-amount', type: 'number', value: '' + Math.max(0, billing.tuitionOwed) })
           ),
           h('div', { class: 'form-group' },
+            h('label', {}, 'Date'),
+            h('input', { class: 'input', id: 'pay-date', type: 'date', value: localToday() })
+          )
+        ),
+        h('div', { class: 'form-row' },
+          h('div', { class: 'form-group' },
             h('label', {}, 'Method'),
             h('select', { class: 'input', id: 'pay-method' },
               h('option', { value: 'Venmo' }, 'Venmo'),
@@ -1197,20 +1600,21 @@ function renderPayments() {
               h('option', { value: 'PayPal' }, 'PayPal'),
               h('option', { value: 'Other' }, 'Other')
             )
+          ),
+          h('div', { class: 'form-group' },
+            h('label', {}, 'Note'),
+            h('input', { class: 'input', id: 'pay-note', placeholder: 'e.g. @username, check #, etc.' })
           )
-        ),
-        h('div', { class: 'form-group' },
-          h('label', {}, 'Note'),
-          h('input', { class: 'input', id: 'pay-note', placeholder: 'e.g. @username, check #, etc.' })
         ),
         h('button', { class: 'btn', onClick: () => {
           const amount = parseFloat(document.getElementById('pay-amount').value);
+          const date = document.getElementById('pay-date').value || localToday();
           const method = document.getElementById('pay-method').value;
           const note = document.getElementById('pay-note').value;
           if (!amount || amount <= 0) return;
           const payId = uid();
           if (!s.payments) s.payments = {};
-          s.payments[payId] = { date: new Date().toISOString().slice(0, 10), amount, method, note, programId: null };
+          s.payments[payId] = { date, amount, method, note, programId: null };
           fbSave("students/" + paymentStudent + "/payments/" + payId, s.payments[payId]);
           render();
         }}, 'Record Payment')
@@ -1289,75 +1693,403 @@ function renderPayments() {
           )
         )
       );
-    })
+    }),
+
+    renderInvoicingSection()
   );
+}
+
+function renderInvoicingSection() {
+  const students = localData.students;
+  const keys = Object.keys(students).filter(k => students[k].profile.active !== false);
+
+  // Group students by parent for family invoicing
+  const families = groupStudentsByParent(keys);
+  const familyRows = Object.entries(families).map(([email, fam]) => {
+    const fb = computeFamilyBilling(fam.studentKeys);
+    const names = fam.studentKeys.map(k => students[k].profile.name);
+    return { email, parentEmail: fam.parentEmail, parentName: fam.parentName, studentKeys: fam.studentKeys, names, ...fb };
+  }).filter(r => r.balanceDue !== 0 || r.children.length > 0);
+
+  const billable = familyRows.filter(r => r.balanceDue > 0);
+
+  return h('div', {},
+    // Divider
+    h('div', { style: { borderTop: '2px solid var(--border)', margin: '24px 0' } }),
+
+    h('h2', { class: 'section-title' }, 'Invoicing'),
+    h('p', { class: 'section-sub' }, 'Generate Gmail drafts — grouped by family'),
+
+    // Gmail connection
+    !gmailAccessToken ? h('div', { class: 'card', style: { textAlign: 'center', padding: '20px' } },
+      h('div', { style: { fontSize: '13px', color: 'var(--muted)', marginBottom: '10px' } }, 'Connect your Gmail to create invoice drafts'),
+      h('button', { class: 'btn', onClick: connectGmail }, 'Connect Gmail')
+    ) : '',
+
+    // Family summary table
+    familyRows.length > 0 ? h('div', { class: 'card' },
+      h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '10px' } },
+        familyRows.length + ' families, ' + billable.length + ' with balance due'),
+      ...familyRows.map(r =>
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' } },
+          h('div', {},
+            h('div', { style: { fontWeight: '600', fontSize: '13px' } }, r.names.join(' & ')),
+            h('div', { style: { fontSize: '11px', color: 'var(--muted)' } },
+              r.parentName + (r.periodLabel ? ' \u00B7 ' + r.periodLabel : '')
+            )
+          ),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+            h('button', { class: 'btn-outline', style: { padding: '2px 8px', fontSize: '10px' }, onClick: () => { invoicePreviewFamily = r.email; render(); } }, 'Preview'),
+            h('div', { style: { textAlign: 'right', minWidth: '60px' } },
+              h('div', { style: { fontWeight: '700', fontSize: '15px', color: r.balanceDue > 0 ? 'var(--red)' : r.balanceDue < 0 ? 'var(--blue)' : 'var(--green)' } },
+                (r.balanceDue < 0 ? '-' : '') + fmtCurrency(r.balanceDue)),
+              h('span', { class: 'badge ' + (r.balanceDue > 0 ? 'badge-red' : r.balanceDue < 0 ? 'badge-blue' : 'badge-green') },
+                r.balanceDue > 0 ? 'Due' : r.balanceDue < 0 ? 'Credit' : 'Paid')
+            )
+          )
+        )
+      )
+    ) : h('div', { class: 'card', style: { textAlign: 'center', padding: '20px', color: 'var(--muted)' } },
+      'No outstanding balances'),
+
+    // Generate all button
+    gmailAccessToken && billable.length > 0 ? h('button', {
+      class: 'btn',
+      style: { width: '100%', marginTop: '12px', padding: '12px' },
+      onClick: async () => {
+        if (!confirm('Create Gmail drafts for ' + billable.length + ' families with a balance due?')) return;
+        let created = 0, skipped = 0, errors = [];
+        for (const r of billable) {
+          if (!r.parentEmail) { skipped++; continue; }
+          const fb = computeFamilyBilling(r.studentKeys);
+          const names = r.names.join(' & ');
+          const invoiceData = {
+            businessName: 'Professor of Funk',
+            businessEmail: 'simonoto@gmail.com',
+            invoiceDate: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+            parentName: r.parentName || '',
+            children: fb.children,
+            totalCharges: fb.totalCharges,
+            balanceDue: fb.balanceDue,
+            periodLabel: fb.periodLabel
+          };
+          const toEmail = r.parentEmail.split(',')[0].trim();
+          try {
+            await createGmailDraft(
+              toEmail,
+              'Professor of Funk - ' + (fb.periodLabel || 'Invoice') + ' - ' + names,
+              buildInvoiceHtml(invoiceData)
+            );
+            created++;
+          } catch (e) {
+            errors.push(names + ': ' + e.message);
+            skipped++;
+          }
+        }
+        invoiceStatus = { created, skipped, errors };
+        render();
+      }
+    }, 'Generate ' + billable.length + ' Invoice Drafts') : '',
+
+    // Status feedback
+    invoiceStatus ? h('div', { class: 'card', style: { marginTop: '12px', borderTop: '3px solid var(--green)' } },
+      h('div', { style: { fontWeight: '600', fontSize: '13px', color: 'var(--green)' } },
+        'Created ' + invoiceStatus.created + ' draft' + (invoiceStatus.created !== 1 ? 's' : '') +
+        (invoiceStatus.skipped > 0 ? ', skipped ' + invoiceStatus.skipped : '')),
+      h('div', { style: { fontSize: '12px', color: 'var(--muted)', marginTop: '4px' } }, 'Check your Gmail Drafts folder to review and send.'),
+      invoiceStatus.errors.length > 0 ? h('div', { style: { fontSize: '11px', color: 'var(--red)', marginTop: '6px' } },
+        ...invoiceStatus.errors.map(e => h('div', {}, e))) : ''
+    ) : '',
+
+    // Preview modal
+    invoicePreviewFamily ? renderFamilyInvoicePreview(invoicePreviewFamily) : ''
+  );
+}
+
+function renderFamilyInvoicePreview(familyEmail) {
+  const students = localData.students;
+  const keys = Object.keys(students).filter(k => students[k].profile.active !== false);
+  const families = groupStudentsByParent(keys);
+  const fam = families[familyEmail];
+  if (!fam) { invoicePreviewFamily = null; return ''; }
+
+  const fb = computeFamilyBilling(fam.studentKeys);
+  const data = {
+    businessName: 'Professor of Funk',
+    businessEmail: 'simonoto@gmail.com',
+    invoiceDate: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+    parentName: fam.parentName || '',
+    children: fb.children,
+    totalCharges: fb.totalCharges,
+    balanceDue: fb.balanceDue,
+    periodLabel: fb.periodLabel
+  };
+
+  return h('div', {
+    style: { position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.8)', zIndex: '999', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' },
+    onClick: (e) => { if (e.target === e.currentTarget) { invoicePreviewFamily = null; render(); } }
+  },
+    h('div', { style: { background: '#fff', borderRadius: '12px', maxWidth: '640px', width: '100%', maxHeight: '80vh', overflow: 'auto', padding: '24px' } },
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' } },
+        h('div', { style: { fontWeight: '600', fontSize: '14px', color: '#333' } }, 'Invoice Preview'),
+        h('button', { style: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#666' }, onClick: () => { invoicePreviewFamily = null; render(); } }, '\u00D7')
+      ),
+      h('div', { html: buildInvoiceHtml(data) })
+    )
+  );
+}
+
+const SCORE_LABELS = ['', 'Just Started', 'Getting There', 'Solid', 'Performance Ready', 'Mastered'];
+
+function renderSongScores(studentKey) {
+  const s = localData.students[studentKey];
+  if (!s) return '';
+  const scores = s.songScores ? (typeof s.songScores === 'object' && !Array.isArray(s.songScores) ? s.songScores : {}) : {};
+  const songList = Object.entries(scores).sort((a, b) => (b[1].lastUpdated || '').localeCompare(a[1].lastUpdated || ''));
+
+  return h('div', { class: 'card', style: { borderTop: '3px solid var(--accent)', marginTop: '16px' } },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
+      h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '16px' } }, 'Song Scores'),
+      !addingSongScore ? h('button', { class: 'btn btn-sm', onClick: () => { addingSongScore = true; render(); } }, '+ Add Song') : ''
+    ),
+
+    addingSongScore ? h('div', { style: { background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px', marginBottom: '10px' } },
+      h('div', { class: 'form-row' },
+        h('div', { class: 'form-group' },
+          h('label', {}, 'Title'),
+          h('input', { class: 'input', id: 'ss-title', placeholder: 'e.g. Pride and Joy' })
+        ),
+        h('div', { class: 'form-group' },
+          h('label', {}, 'Artist'),
+          h('input', { class: 'input', id: 'ss-artist', placeholder: 'e.g. SRV' })
+        )
+      ),
+      h('div', { class: 'form-group' },
+        h('label', {}, 'Initial Score'),
+        h('div', { id: 'ss-initial-stars', style: { display: 'flex', gap: '4px', alignItems: 'center', marginTop: '4px' } },
+          ...[1,2,3,4,5].map(n =>
+            h('span', {
+              'data-val': '' + n,
+              class: 'ss-new-star',
+              style: { fontSize: '22px', cursor: 'pointer', color: 'var(--border)', lineHeight: '1', userSelect: 'none' },
+              onClick: (e) => {
+                const val = parseInt(e.target.getAttribute('data-val'));
+                document.querySelectorAll('.ss-new-star').forEach(el => {
+                  el.style.color = parseInt(el.getAttribute('data-val')) <= val ? 'var(--accent)' : 'var(--border)';
+                });
+                document.getElementById('ss-score-val').value = '' + val;
+              }
+            }, '☆')
+          ),
+          h('input', { type: 'hidden', id: 'ss-score-val', value: '1' })
+        )
+      ),
+      h('div', { style: { display: 'flex', gap: '6px', marginTop: '4px' } },
+        h('button', { class: 'btn btn-sm', onClick: () => {
+          const title = document.getElementById('ss-title').value.trim();
+          const artist = document.getElementById('ss-artist').value.trim();
+          const score = parseInt(document.getElementById('ss-score-val').value) || 1;
+          if (!title) { alert('Song title is required.'); return; }
+          const today = localToday();
+          const songId = uid();
+          const entry = { title, artist: artist || '', score, lastUpdated: today, history: [{ date: today, score }] };
+          if (!s.songScores) s.songScores = {};
+          s.songScores[songId] = entry;
+          fbSave("students/" + studentKey + "/songScores/" + songId, entry);
+          addingSongScore = false;
+          render();
+        }}, 'Add Song'),
+        h('button', { class: 'btn-outline', onClick: () => { addingSongScore = false; render(); } }, 'Cancel')
+      )
+    ) : '',
+
+    songList.length === 0 && !addingSongScore
+      ? h('p', { style: { color: 'var(--muted)', fontSize: '12px' } }, 'No songs scored yet.')
+      : '',
+
+    ...songList.map(([songId, song]) =>
+      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' } },
+        h('div', { style: { flex: '1', minWidth: '0' } },
+          h('div', { style: { fontSize: '13px', fontWeight: '600' } }, song.title),
+          h('div', { style: { fontSize: '11px', color: 'var(--muted)', marginBottom: '2px' } }, (song.artist || '') + (song.lastUpdated ? ' · ' + song.lastUpdated : '')),
+          h('div', { style: { fontSize: '10px', color: 'var(--accent)', fontWeight: '600' } }, SCORE_LABELS[song.score] || '')
+        ),
+        h('div', { style: { display: 'flex', gap: '2px', alignItems: 'center', flexShrink: '0' } },
+          ...[1,2,3,4,5].map(n =>
+            h('span', {
+              style: { fontSize: '18px', cursor: 'pointer', color: n <= song.score ? 'var(--accent)' : 'var(--border)', lineHeight: '1', userSelect: 'none' },
+              onClick: () => {
+                if (n === song.score) return;
+                const today = localToday();
+                song.score = n;
+                song.lastUpdated = today;
+                if (!song.history) song.history = [];
+                song.history.push({ date: today, score: n });
+                fbSave("students/" + studentKey + "/songScores/" + songId + "/score", n);
+                fbSave("students/" + studentKey + "/songScores/" + songId + "/lastUpdated", today);
+                fbSave("students/" + studentKey + "/songScores/" + songId + "/history", song.history);
+                render();
+              }
+            }, n <= song.score ? '★' : '☆')
+          )
+        )
+      )
+    )
+  );
+}
+
+function getAdminWeekId(date) {
+  const d = new Date(date);
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const days = Math.floor((d - jan1) / 86400000);
+  const week = Math.ceil((days + jan1.getDay() + 1) / 7);
+  return d.getFullYear() + '-W' + String(week).padStart(2, '0');
+}
+
+function weekIdToLabel(weekId) {
+  if (!weekId) return weekId;
+  const match = weekId.match(/^(\d{4})-W(\d{2})$/);
+  if (!match) return weekId;
+  const year = parseInt(match[1], 10);
+  const week = parseInt(match[2], 10);
+  const jan1 = new Date(year, 0, 1);
+  const offset = (jan1.getDay() + 6) % 7;
+  const monday = new Date(jan1);
+  monday.setDate(jan1.getDate() - offset + (week - 1) * 7);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return fmt(monday) + ' – ' + fmt(sunday);
 }
 
 function renderLessonInput() {
   const students = localData.students;
-  const keys = Object.keys(students);
+  const keys = Object.keys(students).filter(k => students[k].profile.active !== false);
+  const today = new Date();
+  // Compute current week in "YYYY-W##" format for default
+  const currentWeekId = getAdminWeekId(today);
+  // Default the week input value (HTML week input uses "YYYY-W##" with zero-padded week)
+  const weekInputDefault = currentWeekId;
+
+  // Gather all assigned itineraries across students (sorted newest first)
+  const allItineraries = [];
+  keys.forEach(k => {
+    const itinerary = students[k].itinerary;
+    if (itinerary && typeof itinerary === 'object') {
+      Object.entries(itinerary).forEach(([weekId, data]) => {
+        allItineraries.push({ studentKey: k, studentName: students[k].profile.name, weekId, ...data });
+      });
+    }
+  });
+  allItineraries.sort((a, b) => (b.assignedAt || b.weekId || '').localeCompare(a.assignedAt || a.weekId || ''));
+
+  function renderItineraryCard(entry) {
+    const isEditing = editingItinerary
+      && editingItinerary.studentKey === entry.studentKey
+      && editingItinerary.weekId === entry.weekId;
+
+    if (isEditing) {
+      return h('div', { class: 'card', style: { borderLeft: '3px solid var(--accent)', marginBottom: '10px' } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' } },
+          h('div', {},
+            h('div', { style: { fontWeight: '600', fontSize: '13px' } }, entry.studentName),
+            h('div', { style: { fontSize: '11px', color: 'var(--accent)', marginTop: '2px' } }, entry.weekId + ' (' + weekIdToLabel(entry.weekId) + ')')
+          ),
+          h('button', { class: 'btn-outline', onClick: () => { editingItinerary = null; render(); } }, '✕ Cancel')
+        ),
+        h('div', { class: 'form-group' },
+          h('textarea', { class: 'input', id: 'edit-itin-text', rows: '7', style: { resize: 'vertical', lineHeight: '1.6' }, html: '' })
+        ),
+        h('button', { class: 'btn btn-sm', onClick: async () => {
+          const text = document.getElementById('edit-itin-text').value.trim();
+          if (!text) { alert('Please enter itinerary text.'); return; }
+          const updated = { text, assignedAt: new Date().toISOString(), week: entry.weekId };
+          if (!students[entry.studentKey].itinerary) students[entry.studentKey].itinerary = {};
+          students[entry.studentKey].itinerary[entry.weekId] = updated;
+          await fbSave('students/' + entry.studentKey + '/itinerary/' + entry.weekId, updated);
+          editingItinerary = null;
+          render();
+        }}, 'Save Changes')
+      );
+    }
+
+    const preview = entry.text
+      ? (entry.text.length > 140 ? entry.text.slice(0, 140) + '…' : entry.text)
+      : '(empty)';
+
+    return h('div', { class: 'card', style: { borderLeft: '3px solid var(--border)', marginBottom: '8px' } },
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' } },
+        h('div', { style: { flex: '1', minWidth: '0' } },
+          h('div', { style: { fontWeight: '600', fontSize: '13px' } }, entry.studentName),
+          h('div', { style: { fontSize: '11px', color: 'var(--accent)', marginTop: '1px' } }, entry.weekId + ' · ' + weekIdToLabel(entry.weekId))
+        ),
+        h('button', {
+          class: 'btn-outline',
+          style: { fontSize: '11px', padding: '3px 10px', flexShrink: '0', marginLeft: '8px' },
+          onClick: () => {
+            editingItinerary = { studentKey: entry.studentKey, weekId: entry.weekId };
+            render();
+            setTimeout(() => {
+              const el = document.getElementById('edit-itin-text');
+              if (el) el.value = entry.text || '';
+            }, 0);
+          }
+        }, 'Edit')
+      ),
+      h('p', { style: { fontSize: '12px', color: 'var(--muted)', lineHeight: '1.5', whiteSpace: 'pre-wrap' } }, preview)
+    );
+  }
 
   return h('div', { class: 'pad' },
-    h('h2', { class: 'section-title' }, 'Lesson Input'),
-    h('p', { class: 'section-sub' }, 'Paste a lesson transcript for AI processing (coming soon)'),
+    h('h2', { class: 'section-title' }, 'Weekly Itinerary'),
+    h('p', { class: 'section-sub' }, 'Assign a weekly practice plan to a student'),
 
     h('div', { class: 'card card-accent' },
       h('div', { class: 'form-group' },
         h('label', {}, 'Student'),
-        h('select', { class: 'input', id: 'lesson-student' },
+        h('select', { class: 'input', id: 'itin-student',
+          onChange: (e) => { lessonStudent = e.target.value; addingSongScore = false; render(); }
+        },
           h('option', { value: '' }, 'Select student...'),
-          ...keys.map(k => h('option', { value: k }, students[k].profile.name))
+          ...keys.map(k => h('option', { value: k, ...(k === lessonStudent ? { selected: 'selected' } : {}) }, students[k].profile.name))
         )
       ),
       h('div', { class: 'form-group' },
-        h('label', {}, 'Lesson Date'),
-        h('input', { class: 'input', id: 'lesson-date', type: 'date', value: new Date().toISOString().slice(0, 10) })
+        h('label', {}, 'Week'),
+        h('input', { class: 'input', id: 'itin-week', type: 'week', value: weekInputDefault })
       ),
       h('div', { class: 'form-group' },
-        h('label', {}, 'Transcript / Notes'),
-        h('textarea', { class: 'input', id: 'lesson-transcript', rows: '10', placeholder: 'Paste lesson transcript here, or write quick notes about what was covered...\n\nIn the future, this will be processed by AI to automatically generate:\n- Lesson summary\n- Key concepts\n- Practice plan\n- Milestone updates', style: { resize: 'vertical', fontFamily: "'IBM Plex Sans', monospace", fontSize: '13px', lineHeight: '1.6' } })
+        h('label', {}, 'Practice Itinerary'),
+        h('textarea', {
+          class: 'input', id: 'itin-text', rows: '8',
+          placeholder: 'Write the student\'s weekly practice plan here.\n\nFor example:\n\u2022 Warm-up: chromatic scales, 5 min\n\u2022 Technique: finger independence exercises p.14, 10 min\n\u2022 Repertoire: \u201cSuperstition\u201d verse groove, slow tempo, 15 min\n\u2022 Goal: clean riff transitions before next lesson',
+          style: { resize: 'vertical', lineHeight: '1.6' }
+        })
       ),
-      h('button', { class: 'btn', onClick: () => {
-        const studentKey = document.getElementById('lesson-student').value;
-        const date = document.getElementById('lesson-date').value;
-        const transcript = document.getElementById('lesson-transcript').value.trim();
-        if (!studentKey || !transcript) { alert('Please select a student and enter notes.'); return; }
-
-        // For now, save raw transcript to mock data
-        if (!localData.lessonTranscripts) localData.lessonTranscripts = [];
-        localData.lessonTranscripts.push({
-          id: uid(),
-          studentKey,
-          date,
-          transcript,
-          processed: false,
-          savedAt: new Date().toISOString()
-        });
-        saveLocalData(['lessonTranscripts']);
-
-        // Clear form
-        document.getElementById('lesson-transcript').value = '';
-        alert('Transcript saved! AI processing will be available in a future update.');
-      }}, 'Save Transcript'),
-      h('p', { style: { color: 'var(--muted)', fontSize: '11px', marginTop: '8px', fontStyle: 'italic' } }, 'AI processing coming soon — for now, transcripts are saved locally.')
+      h('button', { class: 'btn', onClick: async () => {
+        const studentKey = document.getElementById('itin-student').value;
+        const weekRaw = document.getElementById('itin-week').value;
+        const text = document.getElementById('itin-text').value.trim();
+        if (!studentKey) { alert('Please select a student.'); return; }
+        if (!text) { alert('Please write an itinerary.'); return; }
+        if (!weekRaw) { alert('Please select a week.'); return; }
+        // Browser week input returns "YYYY-W##" already
+        const weekId = weekRaw;
+        const entry = { text, assignedAt: new Date().toISOString(), week: weekId };
+        if (!students[studentKey].itinerary) students[studentKey].itinerary = {};
+        students[studentKey].itinerary[weekId] = entry;
+        await fbSave('students/' + studentKey + '/itinerary/' + weekId, entry);
+        document.getElementById('itin-text').value = '';
+        render();
+      }}, 'Assign Itinerary')
     ),
 
-    // Recent transcripts
-    localData.lessonTranscripts && localData.lessonTranscripts.length > 0 ? h('div', {},
-      h('div', { class: 'label', style: { marginTop: '16px' } }, 'Saved Transcripts'),
-      ...localData.lessonTranscripts.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt)).map(t => {
-        const s = students[t.studentKey];
-        return h('div', { class: 'card' },
-          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
-            h('div', {},
-              h('span', { style: { fontWeight: '600', fontSize: '13px' } }, s ? s.profile.name : 'Unknown'),
-              h('span', { style: { color: 'var(--muted)', fontSize: '11px', marginLeft: '8px' } }, fmtDateFull(t.date))
-            ),
-            h('span', { class: 'badge ' + (t.processed ? 'badge-green' : 'badge-yellow') }, t.processed ? 'Processed' : 'Pending')
-          ),
-          h('p', { style: { fontSize: '12px', color: 'var(--muted)', lineHeight: '1.4', maxHeight: '60px', overflow: 'hidden' } }, t.transcript)
-        );
-      })
+    // Song Scores for selected student
+    lessonStudent ? renderSongScores(lessonStudent) : '',
+
+    allItineraries.length > 0 ? h('div', {},
+      h('div', { class: 'label', style: { marginTop: '8px', marginBottom: '8px' } }, 'Previously Assigned'),
+      ...allItineraries.map(renderItineraryCard)
     ) : ''
   );
 }
@@ -1549,7 +2281,7 @@ function renderEditEnsembleForm(key) {
   );
 }
 
-function renderEnsembles() {
+function renderEnsemblesSection() {
   const ensembles = localData.ensembles;
   const statusColors = {
     'performance-ready': { badge: 'badge-green', label: 'Performance Ready' },
@@ -1557,7 +2289,7 @@ function renderEnsembles() {
     'retired': { badge: 'badge-purple', label: 'Retired' }
   };
 
-  return h('div', { class: 'pad' },
+  return h('div', {},
     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
       h('h2', { class: 'section-title' }, 'Ensembles'),
       !showAddEnsemble ? h('button', { class: 'btn btn-sm', onClick: () => { showAddEnsemble = true; render(); } }, '+ Add Ensemble') : ''
@@ -1697,7 +2429,7 @@ function renderEnsembles() {
                           const studentKey = document.getElementById('assign-student').value || null;
                           const studentName = studentKey ? (memberStudents.find(m => m.key === studentKey) || {}).name || null : null;
                           if (!ens.assignments) ens.assignments = [];
-                          ens.assignments.push({ id: uid(), songId: song.id, songTitle: song.title, text, dueDate, assignedDate: new Date().toISOString().slice(0, 10), studentKey, studentName });
+                          ens.assignments.push({ id: uid(), songId: song.id, songTitle: song.title, text, dueDate, assignedDate: localToday(), studentKey, studentName });
                           saveLocalData(['ensembles']);
                           assigningSong = null;
                           render();
@@ -1786,17 +2518,26 @@ function renderEnsembles() {
   );
 }
 
+function renderRoster() {
+  return h('div', { class: 'pad' },
+    renderStudentsSection(),
+    h('div', { style: { borderTop: '2px solid var(--border)', margin: '24px 0' } }),
+    renderEnsemblesSection()
+  );
+}
+
 /* ===== RENDER ===== */
 function render() {
   if (!localData) return;
   const app = document.getElementById('app');
+  const prevContent = app.querySelector('.content');
+  const savedScroll = prevContent ? prevContent.scrollTop : 0;
   app.innerHTML = '';
   const tabs = [
-    { icon: '👥', label: 'Students' },
     { icon: '📅', label: 'Attendance' },
     { icon: '💰', label: 'Payments' },
-    { icon: '📝', label: 'Lessons' },
-    { icon: '🎵', label: 'Ensembles' }
+    { icon: '👥', label: 'Roster' },
+    { icon: '📝', label: 'Lessons' }
   ];
 
   // Header
@@ -1812,19 +2553,19 @@ function render() {
   // Content
   const content = h('div', { class: 'content' });
   switch (currentTab) {
-    case 0: content.appendChild(renderStudents()); break;
-    case 1: content.appendChild(renderAttendance()); break;
-    case 2: content.appendChild(renderPayments()); break;
+    case 0: content.appendChild(renderAttendance()); break;
+    case 1: content.appendChild(renderPayments()); break;
+    case 2: content.appendChild(renderRoster()); break;
     case 3: content.appendChild(renderLessonInput()); break;
-    case 4: content.appendChild(renderEnsembles()); break;
   }
   app.appendChild(content);
+  content.scrollTop = savedScroll;
 
   // Bottom nav
   app.appendChild(h('div', { class: 'bottom-nav' },
     ...tabs.map((t, i) => h('button', {
       class: 'nav-btn' + (currentTab === i ? ' active' : ''),
-      onClick: () => { currentTab = i; paymentStudent = null; editingStudent = null; editingEnsemble = null; editingSong = null; addingSongTo = null; assigningSong = null; showAddStudent = false; showAddEnsemble = false; render(); }
+      onClick: () => { currentTab = i; paymentStudent = null; editingStudent = null; editingEnsemble = null; editingSong = null; addingSongTo = null; assigningSong = null; showAddStudent = false; showAddEnsemble = false; addingSongScore = false; editingItinerary = null; invoicePreviewFamily = null; invoiceStatus = null; render(); }
     },
       h('span', { class: 'nav-icon' }, t.icon),
       t.label

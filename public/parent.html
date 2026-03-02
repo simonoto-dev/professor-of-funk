@@ -257,6 +257,8 @@ function fmtCurrency(n) { return '$' + Math.abs(n).toLocaleString('en-US', { min
 function render() {
   if (!parentData) return;
   const app = document.getElementById('app');
+  const prevContent = app.querySelector('.content');
+  const savedScroll = prevContent ? prevContent.scrollTop : 0;
   app.innerHTML = '';
 
   // Header
@@ -326,6 +328,7 @@ function render() {
   }
 
   app.appendChild(content);
+  content.scrollTop = savedScroll;
 }
 
 /* ===== SERVICE WORKER ===== */

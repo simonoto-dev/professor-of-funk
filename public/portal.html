@@ -101,6 +101,12 @@ input,textarea,select,button{font-family:inherit;font-size:inherit;}
 ::-webkit-scrollbar{width:6px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.expandable{cursor:pointer;user-select:none;}
+.expandable .expand-header{display:flex;align-items:center;justify-content:space-between;}
+.expandable .expand-chevron{font-size:10px;color:var(--muted);transition:transform 0.2s;flex-shrink:0;margin-left:8px;}
+.expandable.open .expand-chevron{transform:rotate(180deg);}
+.expand-body{overflow:hidden;max-height:0;transition:max-height 0.25s ease;}
+.expandable.open .expand-body{max-height:600px;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -171,10 +177,13 @@ async function checkAuth() {
     const snap = await fbDb.ref(DB_ROOT + "/meta/accessCodes/" + code).once("value");
     const studentKey = snap.val();
     if (!studentKey) { errEl.style.display = 'block'; return; }
-    // 2. Sign in with Firebase Auth (email/password created by admin)
+    // 2. Get the student's profile accessCode (the one that matches the Auth password)
+    const profileSnap = await fbDb.ref(DB_ROOT + "/students/" + studentKey + "/profile/accessCode").once("value");
+    const authCode = profileSnap.val() || code;
+    // 3. Sign in with Firebase Auth (email/password created by admin)
     await firebase.auth().signInWithEmailAndPassword(
       studentKey + '@professoroffunk.app',
-      code + '!PoF'
+      authCode + '!PoF'
     );
     currentStudent = studentKey;
     sessionStorage.setItem(AUTH_KEY, studentKey);
@@ -193,6 +202,7 @@ async function showApp() {
   loadPracticeData();
   setupRealtimeSync();
   render();
+  loadLeaderboard();
 }
 
 function logout() {
@@ -218,18 +228,30 @@ firebase.auth().onAuthStateChanged(user => {
 
 /* ===== STUDENT DATA (Firebase) ===== */
 let studentData = null;
-let ensembleData = null;
+let ensembleData = null;      // single ensemble for the student's primary program (used by renderEnsembleAssignments)
+let allEnsemblesData = {};    // all ensembles dict, used by renderEnsemble tab
 
 async function loadStudentData() {
   if (!currentStudent) return;
   studentData = await fbLoad("students/" + currentStudent, null);
-  // Load ensemble data if student is in an ensemble program
+  // Load student's primary ensemble for assignments display
   ensembleData = null;
   if (studentData && studentData.programs) {
     const ensProg = Object.values(studentData.programs).find(pr => pr.type === 'ensemble' && pr.ensembleId);
     if (ensProg) {
       ensembleData = await fbLoad("ensembles/" + ensProg.ensembleId, null);
     }
+  }
+  // Load all ensembles for the Ensemble tab
+  allEnsemblesData = await fbLoad("ensembles", {});
+  if (allEnsemblesData && typeof allEnsemblesData === 'object') {
+    Object.keys(allEnsemblesData).forEach(k => {
+      const ens = allEnsemblesData[k];
+      if (ens.repertoire && !Array.isArray(ens.repertoire)) ens.repertoire = Object.values(ens.repertoire);
+      if (!ens.repertoire) ens.repertoire = [];
+      if (ens.info && ens.info.members && !Array.isArray(ens.info.members)) ens.info.members = Object.values(ens.info.members);
+      if (ens.info && !ens.info.members) ens.info.members = [];
+    });
   }
 }
 
@@ -246,6 +268,120 @@ function setupRealtimeSync() {
     }
     render();
   });
+  onDataChange("ensembles", val => {
+    if (!val) { allEnsemblesData = {}; return; }
+    allEnsemblesData = val;
+    Object.keys(allEnsemblesData).forEach(k => {
+      const ens = allEnsemblesData[k];
+      if (ens.repertoire && !Array.isArray(ens.repertoire)) ens.repertoire = Object.values(ens.repertoire);
+      if (!ens.repertoire) ens.repertoire = [];
+      if (ens.info && ens.info.members && !Array.isArray(ens.info.members)) ens.info.members = Object.values(ens.info.members);
+      if (ens.info && !ens.info.members) ens.info.members = [];
+    });
+    render();
+  });
+}
+
+/* ===== EXPANDED STATE ===== */
+const expandedSections = new Set(); // for assignment plan sections
+const expandedLessons = new Set();  // for lesson cards
+
+/* ===== LEADERBOARD ===== */
+let leaderboardCache = null;
+let leaderboardFetchedAt = 0;
+
+async function fetchLeaderboard() {
+  const now = Date.now();
+  if (leaderboardCache && now - leaderboardFetchedAt < 60000) return leaderboardCache;
+  try {
+    const snap = await fbDb.ref(DB_ROOT + "/students").once("value");
+    const allStudents = snap.val() || {};
+    const dayNames = getDayNames();
+    const nowDate = new Date();
+    const year = nowDate.getFullYear();
+    const month = nowDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    leaderboardCache = Object.entries(allStudents)
+      .filter(([, s]) => s && s.profile && s.profile.name && s.profile.active !== false)
+      .map(([key, s]) => {
+        const practice = s.practice || {};
+        // Monthly days
+        let monthDays = 0;
+        for (let d = 1; d <= Math.min(nowDate.getDate(), daysInMonth); d++) {
+          const dt = new Date(year, month, d);
+          const wk = getWeekId(dt);
+          const dayIdx = (dt.getDay() + 6) % 7;
+          const wkData = practice[wk];
+          if (wkData && wkData[dayNames[dayIdx]]) monthDays++;
+        }
+        // Streak (reuse calcStreak logic with this student's practice data)
+        let streak = 0;
+        const today = new Date();
+        for (let i = 0; i < 60; i++) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const wk = getWeekId(d);
+          const dayIdx = (d.getDay() + 6) % 7;
+          const dayName = dayNames[dayIdx];
+          const wkData = practice[wk];
+          if (wkData && wkData[dayName]) { streak++; }
+          else if (i > 0) { break; }
+        }
+        const elapsed = nowDate.getDate();
+        const pct = elapsed > 0 ? Math.round(monthDays / elapsed * 100) : 0;
+        // First name only
+        const firstName = (s.profile.name || '').split(' ')[0];
+        return { key, firstName, monthDays, streak, pct };
+      })
+      .sort((a, b) => b.monthDays - a.monthDays || b.streak - a.streak);
+
+    leaderboardFetchedAt = now;
+    return leaderboardCache;
+  } catch(e) {
+    console.warn('Leaderboard fetch failed', e);
+    return [];
+  }
+}
+
+function renderLeaderboard(board) {
+  if (!board || board.length === 0) return '';
+  const medals = ['🥇', '🥈', '🥉'];
+  return h('div', { class: 'card', style: { marginBottom: '10px' } },
+    h('div', { class: 'label', style: { marginBottom: '10px' } }, 'Practice Leaderboard'),
+    ...board.map((entry, i) => {
+      const isMe = entry.key === currentStudent;
+      return h('div', {
+        style: {
+          display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
+          borderRadius: '8px', marginBottom: '4px',
+          background: isMe ? 'var(--accent-glow)' : 'var(--surface2)',
+          border: isMe ? '1px solid var(--accent)' : '1px solid transparent'
+        }
+      },
+        h('span', { style: { fontSize: i < 3 ? '18px' : '12px', width: '24px', textAlign: 'center', flexShrink: '0', color: i >= 3 ? 'var(--muted)' : 'inherit', fontWeight: '600' } },
+          i < 3 ? medals[i] : '' + (i + 1)
+        ),
+        h('div', { style: { flex: '1', minWidth: '0' } },
+          h('div', { style: { fontSize: '13px', fontWeight: isMe ? '700' : '600', color: isMe ? 'var(--accent)' : 'var(--text)' } },
+            entry.firstName + (isMe ? ' (you)' : '')
+          ),
+          h('div', { style: { fontSize: '11px', color: 'var(--muted)', marginTop: '1px' } },
+            entry.monthDays + ' days this month · ' + entry.pct + '%'
+          )
+        ),
+        entry.streak > 0 ? h('span', { style: { fontSize: '12px', color: 'var(--muted)', flexShrink: '0' } }, '🔥 ' + entry.streak) : ''
+      );
+    })
+  );
+}
+
+const SCORE_LABELS_PORTAL = ['', 'Just Started', 'Getting There', 'Solid', 'Performance Ready', 'Mastered'];
+
+let leaderboardData = null;
+
+function loadLeaderboard() {
+  fetchLeaderboard().then(board => { leaderboardData = board; render(); });
 }
 
 /* ===== PRACTICE DATA (Firebase) ===== */
@@ -382,6 +518,25 @@ function renderAssignments() {
   }
   const plan = latest.practicePlan;
 
+  function makeSection(id, label, text, extraStyle) {
+    const isOpen = expandedSections.has(id);
+    const el = h('div', { class: 'assignment-block expandable' + (isOpen ? ' open' : ''), ...(extraStyle || {}) },
+      h('div', { class: 'expand-header' },
+        h('div', { class: 'assignment-label' }, label),
+        h('span', { class: 'expand-chevron' }, '▼')
+      ),
+      h('div', { class: 'expand-body' },
+        h('div', { class: 'assignment-text', style: { paddingTop: '6px' } }, text)
+      )
+    );
+    el.addEventListener('click', () => {
+      if (expandedSections.has(id)) expandedSections.delete(id);
+      else expandedSections.add(id);
+      render();
+    });
+    return el;
+  }
+
   return h('div', { class: 'pad' },
     h('div', { style: { marginBottom: '16px' } },
       h('h1', { class: 'section-title' }, greeting + ', ' + s.profile.name),
@@ -389,22 +544,10 @@ function renderAssignments() {
     ),
     h('div', { class: 'card card-accent' },
       h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '16px', marginBottom: '12px' } }, latest.title),
-      h('div', { class: 'assignment-block' },
-        h('div', { class: 'assignment-label' }, 'Warm-up'),
-        h('div', { class: 'assignment-text' }, plan.warmup)
-      ),
-      h('div', { class: 'assignment-block' },
-        h('div', { class: 'assignment-label' }, 'Technical Exercise'),
-        h('div', { class: 'assignment-text' }, plan.technical)
-      ),
-      h('div', { class: 'assignment-block' },
-        h('div', { class: 'assignment-label' }, 'Repertoire'),
-        h('div', { class: 'assignment-text' }, plan.repertoire)
-      ),
-      h('div', { class: 'assignment-block', style: { background: 'var(--accent-glow)', border: '1px solid rgba(212,148,58,0.3)' } },
-        h('div', { class: 'assignment-label' }, 'Goal for Next Lesson'),
-        h('div', { class: 'assignment-text', style: { fontWeight: '600' } }, plan.goal)
-      )
+      makeSection('warmup', 'Warm-up', plan.warmup),
+      makeSection('technical', 'Technical Exercise', plan.technical),
+      makeSection('repertoire', 'Repertoire', plan.repertoire),
+      makeSection('goal', 'Goal for Next Lesson', plan.goal, { style: { background: 'var(--accent-glow)', border: '1px solid rgba(212,148,58,0.3)' } })
     ),
     latest.keyConcepts.length ? h('div', { style: { marginTop: '8px' } },
       h('div', { class: 'label' }, 'Key Concepts'),
@@ -436,6 +579,18 @@ function renderPractice() {
       h('div', { class: 'streak-label' }, streak === 1 ? 'Day Streak' : 'Day Streak'),
       streak >= 7 ? h('div', { style: { marginTop: '4px', fontSize: '16px' } }, '🔥') : ''
     ),
+
+    // Weekly itinerary from teacher
+    (() => {
+      const itinerary = studentData && studentData.itinerary;
+      const weekEntry = itinerary && itinerary[currentWeekId];
+      if (!weekEntry || !weekEntry.text) return '';
+      return h('div', { class: 'card', style: { borderTop: '3px solid var(--accent)', marginBottom: '10px' } },
+        h('div', { style: { fontSize: '10px', color: 'var(--accent)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' } }, 'From your teacher'),
+        h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '15px', marginBottom: '8px' } }, 'This Week\'s Plan'),
+        h('p', { style: { fontSize: '13px', lineHeight: '1.6', whiteSpace: 'pre-wrap', color: 'var(--text)' } }, weekEntry.text)
+      );
+    })(),
 
     h('div', { class: 'card' },
       h('div', { class: 'label' }, 'This Week'),
@@ -474,6 +629,8 @@ function renderPractice() {
       )
     ),
 
+    leaderboardData ? renderLeaderboard(leaderboardData) : '',
+
     h('div', { class: 'card' },
       h('div', { class: 'label' }, 'What I Worked On Today'),
       h('textarea', {
@@ -507,25 +664,41 @@ function renderLessons() {
   return h('div', { class: 'pad' },
     h('h2', { class: 'section-title' }, 'Lesson History'),
     h('p', { class: 'section-sub' }, lessons.length + ' lessons on record'),
-    ...lessons.map(l =>
-      h('div', { class: 'lesson-card' },
-        h('div', { class: 'lesson-date' }, fmtDate(l.date)),
-        h('div', { class: 'lesson-title' }, l.title),
-        h('p', { style: { fontSize: '13px', color: 'var(--muted)', lineHeight: '1.5', marginBottom: '8px' } }, l.summary),
-        l.keyConcepts && l.keyConcepts.length ? h('div', {},
-          h('div', { class: 'label', style: { marginTop: '8px' } }, 'Key Concepts'),
-          h('div', { class: 'lesson-concepts' },
-            ...l.keyConcepts.map(c => h('span', { class: 'concept-tag' }, c))
+    ...lessons.map(l => {
+      const isOpen = expandedLessons.has(l.id);
+      const card = h('div', { class: 'lesson-card expandable' + (isOpen ? ' open' : '') },
+        h('div', { class: 'expand-header' },
+          h('div', { style: { flex: '1', minWidth: '0' } },
+            h('div', { class: 'lesson-date' }, fmtDate(l.date)),
+            h('div', { class: 'lesson-title', style: { marginBottom: '0' } }, l.title)
+          ),
+          h('span', { class: 'expand-chevron' }, '▼')
+        ),
+        h('div', { class: 'expand-body' },
+          h('div', { style: { paddingTop: '10px' } },
+            h('p', { style: { fontSize: '13px', color: 'var(--muted)', lineHeight: '1.5', marginBottom: '8px' } }, l.summary),
+            l.keyConcepts && l.keyConcepts.length ? h('div', {},
+              h('div', { class: 'label', style: { marginTop: '8px' } }, 'Key Concepts'),
+              h('div', { class: 'lesson-concepts' },
+                ...l.keyConcepts.map(c => h('span', { class: 'concept-tag' }, c))
+              )
+            ) : '',
+            l.areasOfFocus && l.areasOfFocus.length ? h('div', {},
+              h('div', { class: 'label', style: { marginTop: '8px' } }, 'Areas of Focus'),
+              h('div', { style: { fontSize: '12px', color: 'var(--text)' } },
+                ...l.areasOfFocus.map((a, i) => h('span', {}, (i > 0 ? ' · ' : '') + a))
+              )
+            ) : ''
           )
-        ) : '',
-        l.areasOfFocus && l.areasOfFocus.length ? h('div', {},
-          h('div', { class: 'label', style: { marginTop: '8px' } }, 'Areas of Focus'),
-          h('div', { style: { fontSize: '12px', color: 'var(--text)' } },
-            ...l.areasOfFocus.map((a, i) => h('span', {}, (i > 0 ? ' · ' : '') + a))
-          )
-        ) : ''
-      )
-    )
+        )
+      );
+      card.addEventListener('click', () => {
+        if (expandedLessons.has(l.id)) expandedLessons.delete(l.id);
+        else expandedLessons.add(l.id);
+        render();
+      });
+      return card;
+    })
   );
 }
 
@@ -535,37 +708,72 @@ function renderProgress() {
     .map(([id, m]) => ({ id, ...m }))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+  const songScores = s.songScores
+    ? Object.entries(s.songScores).sort((a, b) => (b[1].lastUpdated || '').localeCompare(a[1].lastUpdated || ''))
+    : [];
+
   const categoryColors = {
-    technique: { bg: 'rgba(212,148,58,0.15)', color: 'var(--accent)', dot: 'var(--accent)' },
-    theory: { bg: 'rgba(96,165,250,0.15)', color: 'var(--blue)', dot: 'var(--blue)' },
-    repertoire: { bg: 'rgba(74,222,128,0.15)', color: 'var(--green)', dot: 'var(--green)' },
-    performance: { bg: 'rgba(192,132,252,0.15)', color: 'var(--purple)', dot: 'var(--purple)' },
-    'ear training': { bg: 'rgba(251,191,36,0.15)', color: 'var(--yellow)', dot: 'var(--yellow)' }
+    technique: { bg: 'rgba(212,148,58,0.15)', color: 'var(--accent)' },
+    theory: { bg: 'rgba(96,165,250,0.15)', color: 'var(--blue)' },
+    repertoire: { bg: 'rgba(74,222,128,0.15)', color: 'var(--green)' },
+    performance: { bg: 'rgba(192,132,252,0.15)', color: 'var(--purple)' },
+    'ear training': { bg: 'rgba(251,191,36,0.15)', color: 'var(--yellow)' }
   };
 
   return h('div', { class: 'pad' },
-    h('h2', { class: 'section-title' }, 'Progress Timeline'),
-    h('p', { class: 'section-sub' }, milestones.length + ' milestones achieved'),
+    h('h2', { class: 'section-title' }, 'Progress'),
 
-    h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' } },
-      ...Object.keys(categoryColors).map(cat =>
-        h('span', { class: 'badge', style: { background: categoryColors[cat].bg, color: categoryColors[cat].color } }, cat)
-      )
-    ),
+    // Repertoire Progress
+    h('div', { class: 'label', style: { marginBottom: '8px', marginTop: '4px' } }, 'Repertoire Progress'),
+    songScores.length > 0
+      ? h('div', { class: 'card', style: { padding: '0', overflow: 'hidden' } },
+          ...songScores.map(([, song], idx) =>
+            h('div', {
+              style: {
+                display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                borderBottom: idx < songScores.length - 1 ? '1px solid var(--border)' : 'none'
+              }
+            },
+              h('div', { style: { flex: '1', minWidth: '0' } },
+                h('div', { style: { fontWeight: '600', fontSize: '13px' } }, song.title),
+                h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, (song.artist || '') + (song.lastUpdated ? ' · updated ' + fmtDate(song.lastUpdated) : ''))
+              ),
+              h('div', { style: { textAlign: 'right', flexShrink: '0' } },
+                h('div', { style: { display: 'flex', gap: '2px', justifyContent: 'flex-end' } },
+                  ...[1,2,3,4,5].map(n =>
+                    h('span', { style: { fontSize: '16px', color: n <= (song.score || 0) ? 'var(--accent)' : 'var(--border)', lineHeight: '1' } },
+                      n <= (song.score || 0) ? '★' : '☆'
+                    )
+                  )
+                ),
+                h('div', { style: { fontSize: '10px', color: 'var(--accent)', fontWeight: '600', marginTop: '2px' } },
+                  SCORE_LABELS_PORTAL[song.score] || ''
+                )
+              )
+            )
+          )
+        )
+      : h('p', { style: { color: 'var(--muted)', fontSize: '12px', marginBottom: '16px' } }, 'No songs scored yet — your teacher will rate your repertoire after lessons.'),
 
-    h('div', { class: 'timeline' },
-      ...milestones.map(m => {
-        const cc = categoryColors[m.category] || categoryColors.technique;
-        return h('div', { class: 'timeline-item completed' },
-          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' } },
-            h('div', { style: { fontWeight: '600', fontSize: '14px' } }, m.title),
-            h('span', { style: { fontSize: '10px', color: 'var(--muted)', flexShrink: '0', marginLeft: '8px' } }, fmtDate(m.date))
-          ),
-          h('span', { class: 'badge', style: { background: cc.bg, color: cc.color, marginBottom: '4px' } }, m.category),
-          h('p', { style: { fontSize: '12px', color: 'var(--muted)', lineHeight: '1.4' } }, m.description)
-        );
-      })
-    )
+    // Milestones
+    milestones.length > 0
+      ? h('div', { style: { marginTop: '20px' } },
+          h('div', { class: 'label', style: { marginBottom: '8px' } }, 'Milestones'),
+          h('div', { class: 'timeline' },
+            ...milestones.map(m => {
+              const cc = categoryColors[m.category] || categoryColors.technique;
+              return h('div', { class: 'timeline-item completed' },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' } },
+                  h('div', { style: { fontWeight: '600', fontSize: '14px' } }, m.title),
+                  h('span', { style: { fontSize: '10px', color: 'var(--muted)', flexShrink: '0', marginLeft: '8px' } }, fmtDate(m.date))
+                ),
+                h('span', { class: 'badge', style: { background: cc.bg, color: cc.color, marginBottom: '4px' } }, m.category),
+                h('p', { style: { fontSize: '12px', color: 'var(--muted)', lineHeight: '1.4' } }, m.description)
+              );
+            })
+          )
+        )
+      : ''
   );
 }
 
@@ -594,10 +802,104 @@ function renderResources() {
   );
 }
 
+function renderEnsemble() {
+  const s = getStudentData();
+  const studentName = s.profile.name;
+  const statusColors = {
+    'performance-ready': { badge: 'badge-green', label: 'Performance Ready' },
+    'learning': { badge: 'badge-blue', label: 'Learning' },
+    'retired': { badge: 'badge-purple', label: 'Retired' }
+  };
+
+  // Filter ensembles where this student's name appears in info.members
+  const myEnsembles = Object.entries(allEnsemblesData || {}).filter(([, ens]) => {
+    const members = (ens.info && ens.info.members) || [];
+    return members.includes(studentName);
+  });
+
+  if (myEnsembles.length === 0) {
+    return h('div', { class: 'pad' },
+      h('h2', { class: 'section-title' }, 'Ensemble'),
+      h('p', { class: 'section-sub' }, 'Your group programs'),
+      h('div', { class: 'card', style: { textAlign: 'center', padding: '30px 16px' } },
+        h('div', { style: { fontSize: '32px', marginBottom: '10px' } }, '🎸'),
+        h('p', { style: { color: 'var(--muted)', fontSize: '13px', lineHeight: '1.5' } }, "You're not currently in any ensemble program. Ask your teacher if you'd like to join one!")
+      )
+    );
+  }
+
+  return h('div', { class: 'pad' },
+    h('h2', { class: 'section-title' }, 'Ensemble'),
+    h('p', { class: 'section-sub' }, myEnsembles.length === 1 ? '1 group program' : myEnsembles.length + ' group programs'),
+
+    ...myEnsembles.map(([key, ens]) => {
+      const info = ens.info || {};
+      const rep = Array.isArray(ens.repertoire) ? ens.repertoire : [];
+      const ready = rep.filter(r => r.status === 'performance-ready').length;
+      const learning = rep.filter(r => r.status === 'learning').length;
+
+      return h('div', { class: 'card card-accent', style: { marginBottom: '12px' } },
+        // Ensemble header
+        h('div', { style: { marginBottom: '12px' } },
+          h('div', { style: { fontFamily: "'DM Serif Display',Georgia,serif", fontSize: '18px', marginBottom: '4px' } }, info.name || key),
+          info.schedule ? h('div', { style: { fontSize: '12px', color: 'var(--muted)' } }, info.schedule + (info.location ? ' · ' + info.location : '')) : ''
+        ),
+
+        // Member list
+        info.members && info.members.length > 0 ? h('div', { style: { marginBottom: '12px' } },
+          h('div', { class: 'label', style: { marginBottom: '6px' } }, 'Members'),
+          h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+            ...info.members.map(m =>
+              h('span', {
+                style: {
+                  padding: '2px 10px', borderRadius: '10px', fontSize: '11px',
+                  background: m === studentName ? 'var(--accent-glow)' : 'var(--surface2)',
+                  border: m === studentName ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  color: m === studentName ? 'var(--accent)' : 'var(--text)',
+                  fontWeight: m === studentName ? '600' : '400'
+                }
+              }, m + (m === studentName ? ' (you)' : ''))
+            )
+          )
+        ) : '',
+
+        // Repertoire
+        rep.length > 0 ? h('div', {},
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
+            h('div', { class: 'label' }, 'Repertoire'),
+            h('div', { style: { display: 'flex', gap: '8px', fontSize: '11px' } },
+              ready > 0 ? h('span', { style: { color: 'var(--green)' } }, ready + ' ready') : '',
+              learning > 0 ? h('span', { style: { color: 'var(--blue)' } }, learning + ' learning') : ''
+            )
+          ),
+          ...rep.filter(r => r.status !== 'retired').map((song, idx) => {
+            const sc = statusColors[song.status] || { badge: 'badge-accent', label: song.status };
+            return h('div', {
+              style: {
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 0',
+                borderBottom: idx < rep.filter(r => r.status !== 'retired').length - 1 ? '1px solid var(--border)' : 'none'
+              }
+            },
+              h('div', { style: { minWidth: '0', flex: '1' } },
+                h('div', { style: { fontSize: '13px', fontWeight: '600' } }, song.title),
+                song.artist ? h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, song.artist + (song.notes ? ' — ' + song.notes : '')) : ''
+              ),
+              h('span', { class: 'badge ' + sc.badge }, sc.label)
+            );
+          })
+        ) : h('p', { style: { color: 'var(--muted)', fontSize: '12px', marginTop: '4px' } }, 'No repertoire yet.')
+      );
+    })
+  );
+}
+
 /* ===== RENDER ===== */
 function render() {
   if (!currentStudent) return;
   const app = document.getElementById('app');
+  const prevContent = app.querySelector('.content');
+  const savedScroll = prevContent ? prevContent.scrollTop : 0;
   app.innerHTML = '';
   const s = getStudentData();
   const tabs = [
@@ -605,7 +907,8 @@ function render() {
     { icon: '🎯', label: 'Practice' },
     { icon: '📖', label: 'Lessons' },
     { icon: '📈', label: 'Progress' },
-    { icon: '📁', label: 'Resources' }
+    { icon: '📁', label: 'Resources' },
+    { icon: '🎵', label: 'Ensemble' }
   ];
 
   // Header
@@ -629,14 +932,16 @@ function render() {
     case 2: content.appendChild(renderLessons()); break;
     case 3: content.appendChild(renderProgress()); break;
     case 4: content.appendChild(renderResources()); break;
+    case 5: content.appendChild(renderEnsemble()); break;
   }
   app.appendChild(content);
+  content.scrollTop = savedScroll;
 
   // Bottom nav
   app.appendChild(h('div', { class: 'bottom-nav' },
     ...tabs.map((t, i) => h('button', {
       class: 'nav-btn' + (currentTab === i ? ' active' : ''),
-      onClick: () => { currentTab = i; render(); }
+      onClick: () => { currentTab = i; render(); if (i === 1) loadLeaderboard(); }
     },
       h('span', { class: 'nav-icon' }, t.icon),
       t.label

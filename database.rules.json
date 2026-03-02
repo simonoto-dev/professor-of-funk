@@ -7,6 +7,11 @@
         "$studentId": {
           ".read": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1' || auth.uid === data.child('profile/authUid').val() || auth.uid === data.child('profile/parentAuthUid').val()",
           ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'",
+          "profile": {
+            "accessCode": {
+              ".read": true
+            }
+          },
           "practice": {
             ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1' || auth.uid === data.parent().child('profile/authUid').val()"
           }
