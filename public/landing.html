@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="description" content="Professor of Funk — Oakland's premier music education program. Guitar, bass, drums, keys, ensemble playing, and music production for kids and adults.">
+<title>Professor of Funk — Where Oakland Gets Its Groove</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0f; --surface:#13131a; --surface2:#1a1a24; --border:#2a2a35;
+  --accent:#D4943A; --accent-glow:rgba(212,148,58,0.15); --accent-dim:#7A4A28;
+  --accent-bright:#E8A84C;
+  --green:#4ade80; --red:#f87171; --blue:#60a5fa; --purple:#c084fc; --yellow:#fbbf24;
+  --text:#e8e8ef; --muted:#888899; --muted-light:#aaaabb; --warm-muted:#9a8a7a;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  font-size:16px;line-height:1.6;overflow-x:hidden;
+}
+/* Grain texture */
+body::after{
+  content:'';position:fixed;inset:0;
+  background:url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.06'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:10000;mix-blend-mode:multiply;
+}
+
+/* ---- UTILITIES ---- */
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px;}
+.section-label{
+  font-family:'IBM Plex Sans',sans-serif;font-size:0.65rem;font-weight:700;
+  letter-spacing:0.25em;text-transform:uppercase;color:var(--accent);
+  display:flex;align-items:center;gap:12px;margin-bottom:12px;
+}
+.section-label::before{content:'';width:28px;height:2px;background:var(--accent);opacity:0.5;}
+h2{font-family:'DM Serif Display',Georgia,serif;font-size:clamp(1.8rem,4vw,2.6rem);margin-bottom:8px;line-height:1.15;}
+.section-sub{color:var(--muted);font-size:0.95rem;max-width:600px;margin-bottom:40px;}
+.section{padding:clamp(80px,12vw,140px) 0;}
+.section-dark{background:var(--surface);}
+
+/* ---- REVEAL ---- */
+.rv{opacity:0;transform:translateY(30px);transition:opacity 0.7s ease,transform 0.7s ease;}
+.rv.visible{opacity:1;transform:translateY(0);}
+.rv-delay-1{transition-delay:0.1s;}
+.rv-delay-2{transition-delay:0.2s;}
+.rv-delay-3{transition-delay:0.3s;}
+.rv-delay-4{transition-delay:0.4s;}
+
+/* ---- NAV ---- */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  background:rgba(10,10,15,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);transition:background 0.3s;
+}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:60px;}
+.nav-brand{
+  font-family:'DM Serif Display',Georgia,serif;font-size:1.1rem;color:var(--accent);
+  text-decoration:none;display:flex;align-items:center;gap:10px;
+}
+.nav-brand span{font-size:1.3rem;}
+.nav-links{display:flex;gap:24px;align-items:center;list-style:none;}
+.nav-links a{
+  color:var(--muted);text-decoration:none;font-size:0.8rem;font-weight:600;
+  letter-spacing:0.05em;transition:color 0.2s;
+}
+.nav-links a:hover{color:var(--accent);}
+.nav-cta{
+  background:var(--accent);color:var(--bg) !important;border:none;border-radius:8px;
+  padding:8px 18px;font-weight:700;font-size:0.8rem;cursor:pointer;
+  text-decoration:none;transition:background 0.2s,transform 0.2s;
+}
+.nav-cta:hover{background:var(--accent-bright);transform:translateY(-1px);}
+.hamburger{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer;padding:4px;}
+@media(max-width:768px){
+  .nav-links{display:none;}
+  .nav-links.open{
+    display:flex;flex-direction:column;position:absolute;top:60px;left:0;right:0;
+    background:var(--surface);border-bottom:1px solid var(--border);
+    padding:20px 24px;gap:16px;
+  }
+  .hamburger{display:block;}
+}
+
+/* ---- HERO ---- */
+.hero{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  text-align:center;position:relative;overflow:hidden;
+  padding:120px 24px 80px;
+}
+.hero::before{
+  content:'';position:absolute;top:-20%;left:50%;transform:translateX(-50%);
+  width:800px;height:800px;
+  background:radial-gradient(circle,rgba(212,148,58,0.08) 0%,transparent 65%);
+  pointer-events:none;
+}
+.hero::after{
+  content:'';position:absolute;bottom:-10%;right:-10%;
+  width:500px;height:500px;
+  background:radial-gradient(circle,rgba(212,148,58,0.04) 0%,transparent 70%);
+  pointer-events:none;
+}
+.hero-content{position:relative;z-index:2;max-width:700px;}
+.hero-eyebrow{
+  font-size:0.65rem;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:20px;
+  display:inline-block;padding:6px 18px;
+  border:1px solid rgba(212,148,58,0.3);border-radius:20px;
+  opacity:0;animation:fadeUp 0.8s 0.3s forwards;
+}
+.hero h1{
+  font-family:'DM Serif Display',Georgia,serif;
+  font-size:clamp(2.8rem,7vw,5rem);line-height:1.05;margin-bottom:20px;
+  opacity:0;animation:fadeUp 0.8s 0.5s forwards;
+}
+.hero h1 .accent{color:var(--accent);}
+.hero-tagline{
+  font-size:clamp(1.1rem,2.2vw,1.35rem);color:var(--warm-muted);
+  max-width:520px;margin:0 auto 40px;line-height:1.5;
+  font-family:'DM Serif Display',Georgia,serif;font-style:italic;
+  opacity:0;animation:fadeUp 0.8s 0.7s forwards;
+}
+.hero-buttons{
+  display:flex;gap:16px;justify-content:center;flex-wrap:wrap;
+  opacity:0;animation:fadeUp 0.8s 0.9s forwards;
+}
+.btn-primary{
+  background:var(--accent);color:var(--bg);border:none;border-radius:10px;
+  padding:14px 32px;font-weight:700;font-size:0.95rem;cursor:pointer;
+  text-decoration:none;transition:all 0.25s;display:inline-flex;align-items:center;gap:8px;
+}
+.btn-primary:hover{background:var(--accent-bright);transform:translateY(-2px);box-shadow:0 8px 30px rgba(212,148,58,0.25);}
+.btn-secondary{
+  background:transparent;color:var(--accent);border:2px solid var(--accent-dim);
+  border-radius:10px;padding:12px 30px;font-weight:700;font-size:0.95rem;
+  cursor:pointer;text-decoration:none;transition:all 0.25s;display:inline-flex;align-items:center;gap:8px;
+}
+.btn-secondary:hover{border-color:var(--accent);background:var(--accent-glow);transform:translateY(-2px);}
+.hero-note{
+  margin-top:40px;font-size:0.8rem;color:var(--muted);
+  opacity:0;animation:fadeUp 0.8s 1.1s forwards;
+}
+.hero-scroll{
+  position:absolute;bottom:30px;left:50%;transform:translateX(-50%);
+  color:var(--muted);font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  opacity:0;animation:fadeUp 0.8s 1.3s forwards;
+}
+.scroll-line{width:1px;height:30px;background:linear-gradient(to bottom,var(--accent),transparent);}
+
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(20px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+/* ---- MARQUEE ---- */
+.marquee{
+  overflow:hidden;white-space:nowrap;
+  padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.marquee-track{
+  display:inline-block;
+  animation:marquee-scroll 35s linear infinite;
+  font-family:'DM Serif Display',Georgia,serif;
+  font-size:0.85rem;color:var(--muted);letter-spacing:0.05em;
+}
+.marquee-track .sep{color:var(--accent);margin:0 20px;font-size:0.6rem;}
+@keyframes marquee-scroll{
+  0%{transform:translateX(0);}
+  100%{transform:translateX(-50%);}
+}
+
+/* ---- TEACH GRID ---- */
+.teach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.teach-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:28px 24px;position:relative;overflow:hidden;
+  transition:transform 0.3s,border-color 0.3s,box-shadow 0.3s;
+}
+.section-dark .teach-card{background:var(--bg);}
+.teach-card:hover{
+  transform:translateY(-4px);border-color:var(--accent-dim);
+  box-shadow:0 12px 40px rgba(0,0,0,0.3);
+}
+.teach-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--accent);opacity:0;transition:opacity 0.3s;
+}
+.teach-card:hover::before{opacity:1;}
+.teach-icon{font-size:2rem;margin-bottom:16px;display:block;}
+.teach-card h3{
+  font-family:'DM Serif Display',Georgia,serif;font-size:1.15rem;margin-bottom:8px;
+}
+.teach-card p{color:var(--muted-light);font-size:0.85rem;line-height:1.6;}
+@media(max-width:900px){.teach-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:560px){.teach-grid{grid-template-columns:1fr;}}
+
+/* ---- ENSEMBLE ---- */
+.ensemble-split{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;}
+.ensemble-visual{
+  background:var(--surface2);border:1px solid var(--border);border-radius:16px;
+  aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.ensemble-visual::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(212,148,58,0.06) 0%,transparent 60%);
+}
+.ensemble-placeholder{
+  color:var(--muted);font-size:0.85rem;text-align:center;position:relative;z-index:1;
+}
+.ensemble-placeholder .big{font-size:3rem;display:block;margin-bottom:8px;}
+.ensemble-info h2{margin-bottom:16px;}
+.ensemble-info p{color:var(--muted-light);margin-bottom:14px;font-size:0.95rem;}
+.ensemble-features{list-style:none;margin:24px 0;}
+.ensemble-features li{
+  padding:8px 0;font-size:0.9rem;color:var(--text);
+  display:flex;align-items:center;gap:12px;
+}
+.ensemble-features li::before{
+  content:'';width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;
+}
+@media(max-width:768px){
+  .ensemble-split{grid-template-columns:1fr;}
+  .ensemble-visual{max-height:280px;}
+}
+
+/* ---- TESTIMONIALS ---- */
+.testimonials-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+.testimonial-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:28px 24px;position:relative;
+}
+.section-dark .testimonial-card{background:var(--bg);}
+.testimonial-card::before{
+  content:'\201C';position:absolute;top:16px;right:24px;
+  font-family:'DM Serif Display',Georgia,serif;font-size:4rem;
+  color:var(--accent);opacity:0.12;line-height:1;
+}
+.testimonial-text{
+  font-size:0.95rem;color:var(--muted-light);line-height:1.7;
+  margin-bottom:20px;font-style:italic;position:relative;z-index:1;
+}
+.testimonial-author{display:flex;align-items:center;gap:12px;}
+.testimonial-avatar{
+  width:40px;height:40px;border-radius:50%;
+  background:var(--accent-glow);border:2px solid var(--accent-dim);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;font-weight:700;color:var(--accent);
+}
+.testimonial-info .testimonial-name{font-weight:600;font-size:0.85rem;}
+.testimonial-info .testimonial-role{font-size:0.75rem;color:var(--muted);}
+@media(max-width:768px){.testimonials-grid{grid-template-columns:1fr;}}
+
+/* ---- ABOUT ---- */
+.about-split{display:grid;grid-template-columns:1fr 1.3fr;gap:56px;align-items:center;}
+.about-photo{
+  position:relative;border-radius:16px;overflow:hidden;aspect-ratio:3/4;
+  background:var(--surface2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  transform:rotate(-1deg);
+}
+.about-photo::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 50%,rgba(10,10,15,0.5) 100%);
+}
+.about-photo-placeholder{
+  font-size:4rem;opacity:0.15;position:relative;z-index:1;
+}
+.about-text h2{margin-bottom:8px;}
+.about-philosophy{
+  font-family:'DM Serif Display',Georgia,serif;
+  font-size:1.2rem;color:var(--accent);margin-bottom:20px;font-style:italic;
+}
+.about-text p{color:var(--muted-light);margin-bottom:14px;font-size:0.95rem;}
+.about-credentials{list-style:none;margin-top:24px;display:flex;flex-wrap:wrap;gap:8px;}
+.about-credentials li{
+  font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;
+  color:var(--accent);background:var(--accent-glow);
+  padding:5px 14px;border-radius:20px;border:1px solid rgba(212,148,58,0.2);
+}
+@media(max-width:768px){
+  .about-split{grid-template-columns:1fr;}
+  .about-photo{max-width:280px;transform:rotate(0);margin:0 auto;}
+}
+
+/* ---- PRICING ---- */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+.price-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:36px 28px;text-align:center;
+  transition:transform 0.25s,border-color 0.25s;position:relative;
+}
+.price-card:hover{transform:translateY(-4px);border-color:var(--accent-dim);}
+.price-card.featured{border-color:var(--accent);box-shadow:0 0 40px rgba(212,148,58,0.08);}
+.price-card.featured::before{
+  content:'Most Popular';position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  background:var(--accent);color:var(--bg);font-size:0.6rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.1em;padding:4px 16px;border-radius:10px;
+}
+.price-card h3{font-family:'DM Serif Display',Georgia,serif;font-size:1.2rem;margin-bottom:8px;}
+.price-amount{
+  font-family:'DM Serif Display',Georgia,serif;font-size:2.2rem;color:var(--accent);margin:16px 0 4px;
+}
+.price-unit{font-size:0.85rem;color:var(--muted);margin-bottom:16px;}
+.price-desc{font-size:0.85rem;color:var(--muted-light);line-height:1.5;margin-bottom:24px;}
+.price-features{list-style:none;text-align:left;margin-bottom:24px;}
+.price-features li{
+  font-size:0.85rem;color:var(--text);padding:7px 0;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.price-features li:last-child{border-bottom:none;}
+.check{color:var(--green);font-weight:700;flex-shrink:0;}
+@media(max-width:900px){.pricing-grid{grid-template-columns:1fr;max-width:400px;margin-left:auto;margin-right:auto;}}
+
+/* ---- FAQ ---- */
+.faq-list{max-width:700px;}
+.faq-item{border-bottom:1px solid var(--border);}
+.faq-q{
+  width:100%;background:none;border:none;color:var(--text);
+  font-family:'DM Serif Display',Georgia,serif;font-size:1.05rem;
+  text-align:left;padding:20px 0;cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+  transition:color 0.2s;
+}
+.faq-q:hover{color:var(--accent);}
+.faq-arrow{
+  font-size:0.7rem;color:var(--muted);transition:transform 0.3s;flex-shrink:0;
+}
+.faq-item.open .faq-arrow{transform:rotate(180deg);}
+.faq-a{
+  max-height:0;overflow:hidden;
+  transition:max-height 0.35s ease,padding 0.35s;
+}
+.faq-item.open .faq-a{max-height:300px;padding:0 0 20px;}
+.faq-a p{color:var(--muted-light);font-size:0.9rem;line-height:1.7;}
+
+/* ---- CONTACT ---- */
+.contact-split{display:grid;grid-template-columns:1.2fr 1fr;gap:48px;}
+.contact-form{display:flex;flex-direction:column;gap:16px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group label{
+  font-size:0.7rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:0.08em;color:var(--muted);
+}
+.form-input{
+  background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+  padding:12px 16px;color:var(--text);font-size:0.9rem;font-family:inherit;
+  outline:none;transition:border-color 0.2s;width:100%;
+}
+.form-input:focus{border-color:var(--accent);}
+textarea.form-input{resize:vertical;min-height:90px;}
+select.form-input{
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='%23888899'%3E%3Cpath d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;
+}
+.form-success{
+  display:none;background:rgba(74,222,128,0.08);
+  border:1px solid rgba(74,222,128,0.25);border-radius:12px;
+  padding:28px;text-align:center;
+}
+.form-success.show{display:block;}
+.form-success h3{font-family:'DM Serif Display',Georgia,serif;color:var(--green);margin-bottom:8px;}
+.form-success p{color:var(--muted-light);font-size:0.9rem;}
+.form-success a{color:var(--accent);}
+.contact-info h2{margin-bottom:16px;}
+.contact-info > p{color:var(--muted-light);font-size:0.95rem;margin-bottom:28px;}
+.contact-detail{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:14px 0;border-bottom:1px solid var(--border);
+}
+.contact-detail:last-child{border-bottom:none;}
+.contact-icon{font-size:1.2rem;flex-shrink:0;margin-top:2px;}
+.contact-detail strong{display:block;font-size:0.85rem;color:var(--text);margin-bottom:2px;}
+.contact-detail span{font-size:0.85rem;color:var(--muted-light);}
+.contact-detail a{color:var(--accent);text-decoration:none;}
+.contact-detail a:hover{text-decoration:underline;}
+@media(max-width:768px){
+  .contact-split{grid-template-columns:1fr;}
+  .form-row{grid-template-columns:1fr;}
+}
+
+/* ---- FOOTER ---- */
+footer{
+  background:var(--surface);border-top:1px solid var(--border);
+  padding:48px 0 32px;
+}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px;}
+.footer-brand{
+  font-family:'DM Serif Display',Georgia,serif;font-size:1.2rem;color:var(--accent);
+  margin-bottom:8px;
+}
+.footer-brand-sub{color:var(--muted);font-size:0.8rem;}
+.footer-col h4{
+  font-size:0.7rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:14px;
+}
+.footer-col ul{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.footer-col a{color:var(--muted-light);text-decoration:none;font-size:0.85rem;transition:color 0.2s;}
+.footer-col a:hover{color:var(--accent);}
+.footer-bottom{
+  border-top:1px solid var(--border);padding-top:20px;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+}
+.footer-copy{color:var(--muted);font-size:0.75rem;}
+.footer-universe{color:var(--muted);font-size:0.75rem;}
+.footer-universe a{color:var(--accent);text-decoration:none;}
+@media(max-width:768px){
+  .footer-grid{grid-template-columns:1fr 1fr;gap:24px;}
+}
+@media(max-width:480px){
+  .footer-grid{grid-template-columns:1fr;}
+  .footer-bottom{flex-direction:column;text-align:center;}
+}
+
+/* ---- DIVIDER ---- */
+.divider{height:1px;background:linear-gradient(to right,transparent,var(--border),transparent);}
+
+/* ---- Mobile hero buttons ---- */
+@media(max-width:500px){
+  .hero-buttons{flex-direction:column;align-items:center;}
+  .btn-primary,.btn-secondary{width:100%;max-width:280px;justify-content:center;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="wrap nav-inner">
+    <a href="#" class="nav-brand"><span>&#127928;</span> Professor of Funk</a>
+    <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">&#9776;</button>
+    <ul class="nav-links">
+      <li><a href="#lessons">Lessons</a></li>
+      <li><a href="#ensemble">Ensemble</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="#contact" class="nav-cta">Start Lessons</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="hero-content">
+    <div class="hero-eyebrow">Oakland Music Education</div>
+    <h1>Professor of <span class="accent">Funk</span></h1>
+    <p class="hero-tagline">Where Oakland Gets Its Groove</p>
+    <div class="hero-buttons">
+      <a href="#contact" class="btn-primary">Start Lessons &#8594;</a>
+      <a href="parent.html" class="btn-secondary">Parent Portal &#8594;</a>
+    </div>
+    <p class="hero-note">Guitar &middot; Bass &middot; Drums &middot; Keys &middot; Ensembles &middot; All Ages</p>
+  </div>
+  <div class="hero-scroll">
+    scroll
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee">
+  <div class="marquee-track">
+    Guitar <span class="sep">&#9670;</span> Bass <span class="sep">&#9670;</span> Drums <span class="sep">&#9670;</span> Keys <span class="sep">&#9670;</span> Ensemble <span class="sep">&#9670;</span> Music Theory <span class="sep">&#9670;</span> Ear Training <span class="sep">&#9670;</span> Improvisation <span class="sep">&#9670;</span> Performance <span class="sep">&#9670;</span> Recording <span class="sep">&#9670;</span>
+    Guitar <span class="sep">&#9670;</span> Bass <span class="sep">&#9670;</span> Drums <span class="sep">&#9670;</span> Keys <span class="sep">&#9670;</span> Ensemble <span class="sep">&#9670;</span> Music Theory <span class="sep">&#9670;</span> Ear Training <span class="sep">&#9670;</span> Improvisation <span class="sep">&#9670;</span> Performance <span class="sep">&#9670;</span> Recording <span class="sep">&#9670;</span>
+  </div>
+</div>
+
+<!-- WHAT WE TEACH -->
+<section id="lessons" class="section">
+  <div class="wrap">
+    <div class="section-label rv">What We Teach</div>
+    <h2 class="rv rv-delay-1">More than notes on a page.</h2>
+    <p class="section-sub rv rv-delay-2">Every student learns to play, listen, and create. Lessons are tailored to your goals, whether that's jamming with friends or performing on stage.</p>
+    <div class="teach-grid">
+      <div class="teach-card rv">
+        <span class="teach-icon">&#127928;</span>
+        <h3>Guitar</h3>
+        <p>Acoustic and electric. Chords, scales, fingerpicking, riffs, soloing. From first strum to full shred.</p>
+      </div>
+      <div class="teach-card rv rv-delay-1">
+        <span class="teach-icon">&#127927;</span>
+        <h3>Bass</h3>
+        <p>Electric and upright. Grooves, walking lines, slap, fingerstyle. The foundation of every great band.</p>
+      </div>
+      <div class="teach-card rv rv-delay-2">
+        <span class="teach-icon">&#129345;</span>
+        <h3>Drums</h3>
+        <p>Kit drumming, hand percussion, groove, fills, reading. Build a rock-solid pocket.</p>
+      </div>
+      <div class="teach-card rv">
+        <span class="teach-icon">&#127929;</span>
+        <h3>Keys</h3>
+        <p>Piano and keyboard. Reading, chord voicings, comping, improvisation. Play in any style.</p>
+      </div>
+      <div class="teach-card rv rv-delay-1">
+        <span class="teach-icon">&#127926;</span>
+        <h3>Music Theory</h3>
+        <p>Scales, harmony, song form, analysis. Understand WHY music works, not just how to play it.</p>
+      </div>
+      <div class="teach-card rv rv-delay-2">
+        <span class="teach-icon">&#127911;</span>
+        <h3>Ear Training</h3>
+        <p>Intervals, chord quality, rhythm dictation. Train the most important instrument you have.</p>
+      </div>
+      <div class="teach-card rv">
+        <span class="teach-icon">&#127925;</span>
+        <h3>Improvisation</h3>
+        <p>Learn to solo, trade fours, comp, and create on the spot. The language of jazz and funk.</p>
+      </div>
+      <div class="teach-card rv rv-delay-1">
+        <span class="teach-icon">&#127908;</span>
+        <h3>Music Production</h3>
+        <p>Recording, DAWs, mixing basics, beat-making. Bring your ideas to life in the studio.</p>
+      </div>
+      <div class="teach-card rv rv-delay-2">
+        <span class="teach-icon">&#127918;</span>
+        <h3>Performance Skills</h3>
+        <p>Stage presence, setlist planning, sound checks, playing with others. Get ready for the gig.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- THE FUNK ENSEMBLE -->
+<section id="ensemble" class="section section-dark">
+  <div class="wrap">
+    <div class="ensemble-split">
+      <div class="ensemble-visual rv">
+        <div class="ensemble-placeholder">
+          <span class="big">&#127926;&#127928;&#129345;</span>
+          Photo coming soon
+        </div>
+      </div>
+      <div class="ensemble-info rv rv-delay-1">
+        <div class="section-label">Featured Program</div>
+        <h2>The Funk Ensemble</h2>
+        <p>This is where it all comes together. Students form a real band, learn real songs, and perform live. Funk, jazz, rock, soul &mdash; the groove is the teacher.</p>
+        <p>Ensemble members develop skills you can't get from private lessons alone: listening, communication, dynamics, and the unmistakable feeling of locking in with other musicians.</p>
+        <ul class="ensemble-features">
+          <li>Weekly rehearsals with a full band</li>
+          <li>Learn classic and original repertoire</li>
+          <li>Live performance opportunities</li>
+          <li>In-studio recording sessions</li>
+          <li>Music theory applied in real time</li>
+          <li>Open to all instruments and levels</li>
+        </ul>
+        <a href="#contact" class="btn-primary">Join the Ensemble &#8594;</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-label rv">What Parents Say</div>
+    <h2 class="rv rv-delay-1">Real families, real growth.</h2>
+    <p class="section-sub rv rv-delay-2">Don't take our word for it &mdash; hear from the parents in the program.</p>
+    <div class="testimonials-grid">
+      <div class="testimonial-card rv rv-delay-1">
+        <p class="testimonial-text">"My son used to dread practicing. Now he's the one reminding ME it's time for guitar. Simon has a gift for making kids excited about music without it ever feeling like homework."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">J</div>
+          <div class="testimonial-info">
+            <div class="testimonial-name">Jessica M.</div>
+            <div class="testimonial-role">Parent of a guitar student, age 11</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card rv rv-delay-2">
+        <p class="testimonial-text">"The ensemble program changed everything. My daughter went from shy and unsure to performing on stage in front of 200 people. The confidence she's gained goes way beyond music."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">M</div>
+          <div class="testimonial-info">
+            <div class="testimonial-name">Marcus T.</div>
+            <div class="testimonial-role">Parent of a keys student, age 14</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card rv rv-delay-3">
+        <p class="testimonial-text">"We've tried three other music teachers. Simon is the first one my kids actually look forward to seeing every week. He meets them where they are and pushes them just enough."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">R</div>
+          <div class="testimonial-info">
+            <div class="testimonial-name">Rachel K.</div>
+            <div class="testimonial-role">Parent of two students, ages 9 &amp; 12</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ABOUT SIMON -->
+<section id="about" class="section section-dark">
+  <div class="wrap">
+    <div class="about-split">
+      <div class="about-photo rv">
+        <div class="about-photo-placeholder">&#127928;</div>
+      </div>
+      <div class="about-text rv rv-delay-1">
+        <div class="section-label">Meet the Teacher</div>
+        <h2>About Simon</h2>
+        <p class="about-philosophy">"Music is a language. I teach you to speak it."</p>
+        <p>Simon Keyser-Petty is a multi-instrumentalist, producer, and music educator based in Oakland, CA. With years of performance, recording, and teaching experience, he brings a philosophy rooted in groove, improvisation, and creative expression.</p>
+        <p>His teaching style is hands-on, adaptive, and deeply musical. Whether a student is picking up an instrument for the first time or preparing for a conservatory audition, Simon builds a path that's challenging, fun, and always musical.</p>
+        <p>Currently teaching at Inspire School of Arts &amp; Sciences and affiliated with the California Jazz Conservatory (CJC). Simon actively performs, records, and produces in the Bay Area music scene.</p>
+        <ul class="about-credentials">
+          <li>Multi-Instrumentalist</li>
+          <li>Producer</li>
+          <li>CJC Affiliated</li>
+          <li>Inspire School</li>
+          <li>Oakland Based</li>
+          <li>All Ages</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing" class="section">
+  <div class="wrap">
+    <div class="section-label rv">Pricing</div>
+    <h2 class="rv rv-delay-1">Invest in the groove.</h2>
+    <p class="section-sub rv rv-delay-2">Flexible lesson options for every student. Your first trial lesson is always free.</p>
+    <div class="pricing-grid">
+      <div class="price-card rv">
+        <h3>Trial Lesson</h3>
+        <div class="price-amount">Free</div>
+        <div class="price-unit">30 minutes</div>
+        <p class="price-desc">Meet Simon, try an instrument, see if it's a fit. No commitment, no pressure.</p>
+        <ul class="price-features">
+          <li><span class="check">&#10003;</span> 30-minute session</li>
+          <li><span class="check">&#10003;</span> Any instrument</li>
+          <li><span class="check">&#10003;</span> Personalized assessment</li>
+          <li><span class="check">&#10003;</span> No obligation</li>
+        </ul>
+        <a href="#contact" class="btn-primary" style="width:100%;justify-content:center;">Book Free Trial</a>
+      </div>
+      <div class="price-card featured rv rv-delay-1">
+        <h3>Private Lessons</h3>
+        <div class="price-amount">$65</div>
+        <div class="price-unit">per 30-minute lesson</div>
+        <p class="price-desc">One-on-one instruction tailored to your goals. Weekly lessons recommended.</p>
+        <ul class="price-features">
+          <li><span class="check">&#10003;</span> 30 or 60-minute options</li>
+          <li><span class="check">&#10003;</span> Customized curriculum</li>
+          <li><span class="check">&#10003;</span> Weekly practice assignments</li>
+          <li><span class="check">&#10003;</span> Progress tracking portal</li>
+          <li><span class="check">&#10003;</span> Recording opportunities</li>
+        </ul>
+        <a href="#contact" class="btn-primary" style="width:100%;justify-content:center;">Get Started</a>
+      </div>
+      <div class="price-card rv rv-delay-2">
+        <h3>Funk Ensemble</h3>
+        <div class="price-amount">$150</div>
+        <div class="price-unit">per month</div>
+        <p class="price-desc">Weekly group rehearsals, live performances, and studio recording sessions.</p>
+        <ul class="price-features">
+          <li><span class="check">&#10003;</span> Weekly band rehearsal</li>
+          <li><span class="check">&#10003;</span> Performance opportunities</li>
+          <li><span class="check">&#10003;</span> Studio recording</li>
+          <li><span class="check">&#10003;</span> Repertoire &amp; charts provided</li>
+          <li><span class="check">&#10003;</span> All levels welcome</li>
+        </ul>
+        <a href="#contact" class="btn-primary" style="width:100%;justify-content:center;">Join Ensemble</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FAQ -->
+<section id="faq" class="section section-dark">
+  <div class="wrap">
+    <div class="section-label rv">FAQ</div>
+    <h2 class="rv rv-delay-1">Common questions.</h2>
+    <p class="section-sub rv rv-delay-2">Everything you need to know before getting started.</p>
+    <div class="faq-list">
+      <div class="faq-item rv">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          What ages do you teach?
+          <span class="faq-arrow">&#9660;</span>
+        </button>
+        <div class="faq-a">
+          <p>I teach students of all ages, from kids as young as 6 to adults. Lessons are adapted to each student's age, experience level, and learning style. It's never too early or too late to start playing music.</p>
+        </div>
+      </div>
+      <div class="faq-item rv rv-delay-1">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          What instruments can my child learn?
+          <span class="faq-arrow">&#9660;</span>
+        </button>
+        <div class="faq-a">
+          <p>I teach guitar (acoustic and electric), bass, drums, keys/piano, and music production. Students in the ensemble program can play any instrument. Music theory, ear training, and improvisation are part of every lesson.</p>
+        </div>
+      </div>
+      <div class="faq-item rv rv-delay-1">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Where are lessons held?
+          <span class="faq-arrow">&#9660;</span>
+        </button>
+        <div class="faq-a">
+          <p>Lessons take place in Oakland, CA. Contact me for the specific studio location and to discuss scheduling. Some online lesson options may be available depending on the instrument and student level.</p>
+        </div>
+      </div>
+      <div class="faq-item rv rv-delay-2">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          How do I sign up?
+          <span class="faq-arrow">&#9660;</span>
+        </button>
+        <div class="faq-a">
+          <p>Fill out the contact form below or email me directly. I'll get back to you within 24 hours to schedule a free trial lesson. From there, we'll find a regular weekly time that works for your family.</p>
+        </div>
+      </div>
+      <div class="faq-item rv rv-delay-2">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Do you teach adults?
+          <span class="faq-arrow">&#9660;</span>
+        </button>
+        <div class="faq-a">
+          <p>Absolutely. About a third of my students are adults &mdash; beginners picking up their first instrument, returning players getting back into it, and experienced musicians looking to level up. Music has no age limit.</p>
+        </div>
+      </div>
+      <div class="faq-item rv rv-delay-3">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Does my child need their own instrument?
+          <span class="faq-arrow">&#9660;</span>
+        </button>
+        <div class="faq-a">
+          <p>Not for the trial lesson &mdash; instruments are available at the studio. For ongoing lessons, having an instrument at home to practice on is important. I'm happy to help you find the right instrument for your budget.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT / SIGN UP -->
+<section id="contact" class="section">
+  <div class="wrap">
+    <div class="contact-split">
+      <div>
+        <div class="section-label rv">Get Started</div>
+        <h2 class="rv rv-delay-1" style="margin-bottom:12px;">Ready to play?</h2>
+        <p class="section-sub rv rv-delay-2">Fill out the form and I'll reach out within 24 hours to set up your free trial lesson.</p>
+        <form id="signup-form" class="contact-form rv rv-delay-2" onsubmit="return submitForm(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="parentName">Your Name (Parent/Guardian)</label>
+              <input type="text" id="parentName" class="form-input" required placeholder="Your name">
+            </div>
+            <div class="form-group">
+              <label for="studentName">Student Name</label>
+              <input type="text" id="studentName" class="form-input" required placeholder="Student's name">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="studentAge">Student Age</label>
+              <input type="number" id="studentAge" class="form-input" min="4" max="99" placeholder="Age">
+            </div>
+            <div class="form-group">
+              <label for="instrument">Instrument Interest</label>
+              <select id="instrument" class="form-input">
+                <option value="">Select an instrument</option>
+                <option value="Guitar">Guitar</option>
+                <option value="Bass">Bass</option>
+                <option value="Drums">Drums</option>
+                <option value="Keys">Keys / Piano</option>
+                <option value="Production">Music Production</option>
+                <option value="Ensemble">Ensemble Program</option>
+                <option value="Other">Not sure / Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" class="form-input" required placeholder="your@email.com">
+          </div>
+          <div class="form-group">
+            <label for="message">Message (optional)</label>
+            <textarea id="message" class="form-input" placeholder="Tell me about your goals, experience level, scheduling preferences..."></textarea>
+          </div>
+          <button type="submit" class="btn-primary" id="submit-btn" style="align-self:flex-start;">Send Inquiry &#8594;</button>
+        </form>
+        <div id="form-success" class="form-success">
+          <h3>Thanks for reaching out!</h3>
+          <p>I'll get back to you within 24 hours to schedule your free trial lesson. In the meantime, feel free to check out the <a href="parent.html">Parent Portal</a>.</p>
+        </div>
+      </div>
+      <div class="contact-info rv rv-delay-2">
+        <h2>Let's connect.</h2>
+        <p>Questions? Prefer to reach out directly? Here's how to find me.</p>
+        <div class="contact-detail">
+          <span class="contact-icon">&#128205;</span>
+          <div>
+            <strong>Location</strong>
+            <span>Oakland, CA</span>
+          </div>
+        </div>
+        <div class="contact-detail">
+          <span class="contact-icon">&#9993;</span>
+          <div>
+            <strong>Email</strong>
+            <span><a href="mailto:simonoto@gmail.com">simonoto@gmail.com</a></span>
+          </div>
+        </div>
+        <div class="contact-detail">
+          <span class="contact-icon">&#128197;</span>
+          <div>
+            <strong>Availability</strong>
+            <span>Weekday afternoons &amp; evenings</span>
+          </div>
+        </div>
+        <div class="contact-detail">
+          <span class="contact-icon">&#127760;</span>
+          <div>
+            <strong>Website</strong>
+            <span><a href="https://professoroffunk.com">professoroffunk.com</a></span>
+          </div>
+        </div>
+        <div class="contact-detail">
+          <span class="contact-icon">&#127925;</span>
+          <div>
+            <strong>Part of</strong>
+            <span><a href="https://simonoto.com">The Simonoto Universe</a></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">Professor of Funk</div>
+        <p class="footer-brand-sub">Music education in Oakland, CA.<br>Building musicians, one groove at a time.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Programs</h4>
+        <ul>
+          <li><a href="#lessons">Private Lessons</a></li>
+          <li><a href="#ensemble">Funk Ensemble</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#contact">Free Trial</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Portals</h4>
+        <ul>
+          <li><a href="portal.html">Student Portal</a></li>
+          <li><a href="parent.html">Parent Portal</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Connect</h4>
+        <ul>
+          <li><a href="https://simonoto.com" target="_blank">simonoto.com</a></li>
+          <li><a href="mailto:simonoto@gmail.com">Email</a></li>
+          <li><a href="https://instagram.com/simonoto" target="_blank">Instagram</a></li>
+          <li><a href="https://youtube.com/@shr3dbeard" target="_blank">YouTube</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="footer-copy">&copy; 2026 Professor of Funk &middot; Oakland, CA</span>
+      <span class="footer-universe">Part of the <a href="https://simonoto.com">Simonoto</a> universe</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+// Firebase config — professor-of-funk project
+firebase.initializeApp({
+  apiKey: "AIzaSyBAVSC2g5xfnUXqkBoBX8TspITgDg_4FMo",
+  authDomain: "professor-of-funk.firebaseapp.com",
+  databaseURL: "https://professor-of-funk-default-rtdb.firebaseio.com",
+  projectId: "professor-of-funk",
+  storageBucket: "professor-of-funk.firebasestorage.app",
+  messagingSenderId: "409198973109",
+  appId: "1:409198973109:web:1c2aa4fd4611130b236efc"
+});
+
+const db = firebase.database();
+
+// Auth anonymously for write access
+firebase.auth().signInAnonymously().catch(err => {
+  console.warn('Firebase auth failed:', err.message);
+});
+
+// ---- Form submission ----
+function submitForm(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  const data = {
+    parentName: document.getElementById('parentName').value.trim(),
+    studentName: document.getElementById('studentName').value.trim(),
+    studentAge: document.getElementById('studentAge').value || null,
+    instrument: document.getElementById('instrument').value || null,
+    email: document.getElementById('email').value.trim(),
+    message: document.getElementById('message').value.trim() || null,
+    submittedAt: new Date().toISOString(),
+    status: 'new'
+  };
+
+  db.ref('professorOfFunk/inquiries').push(data)
+    .then(() => {
+      document.getElementById('signup-form').style.display = 'none';
+      document.getElementById('form-success').classList.add('show');
+    })
+    .catch(err => {
+      console.error('Submit error:', err);
+      btn.disabled = false;
+      btn.textContent = 'Send Inquiry \u2192';
+      alert('Something went wrong. Please try emailing simonoto@gmail.com directly.');
+    });
+
+  return false;
+}
+
+// ---- Scroll reveal ----
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }});
+}, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.rv').forEach(el => obs.observe(el));
+
+// ---- Close mobile nav on link click ----
+document.querySelectorAll('.nav-links a').forEach(a => {
+  a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+
+// ---- Smooth scroll for anchor links ----
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', (e) => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+});
+</script>
+</body>
+</html>

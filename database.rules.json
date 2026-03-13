@@ -83,6 +83,12 @@
           ".read": "auth != null",
           ".write": "auth != null"
         }
+      },
+      "inquiries": {
+        ".read": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'",
+        "$inquiryId": {
+          ".write": "auth != null && !data.exists() && newData.child('parentName').isString() && newData.child('studentName').isString() && newData.child('email').isString() && newData.child('status').val() === 'new'"
+        }
       }
     }
   }
