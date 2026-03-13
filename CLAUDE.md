@@ -116,14 +116,26 @@ Bass, Drums, Guitar, Keys, Trumpet, Vocals, Other
 - Static links to music resources
 
 ## Parent Portal Features (parent.html)
-- Access code auth (parent codes)
-- Child cards showing stats, balance, practice
+- **5-tab bottom nav:** Home (dashboard), Practice, Messages, Events, Settings
+- Access code auth (parent codes) + email/password upgrade + Google sign-in
+- **Dashboard tab:** Child cards with stats (attendance, streak, monthly practice, balance), expandable sections (practice week, assignments, progress/songs, payments, recent lessons)
+- **Practice tab:** Current week grid, monthly calendar heatmap (navigable by month, green intensity for practiced days), progress charts (song mastery bars, milestone category counts), anonymous practice percentile ring ("practices more than N% of peers") — requires 3+ active students
+- **Messages tab:** Real-time message thread between parent and teacher per student. Messages stored at `messages/{studentKey}/{msgId}`. Parent can only write messages with `from: "parent"` and text <= 1000 chars. Teacher writes from admin. Auto-scrolls to newest. Unread indicator (red dot) on nav.
+- **Events tab:** Upcoming recitals/performances from `events/` node. Cards with countdown badges (color-coded by urgency). Event teaser on dashboard home.
+- **Settings tab:** Toggle switches for daily practice reminder (with time picker), weekly progress summary, payment due alerts. Stored at `parentReminders/{parentId}/`. Practice reminder uses browser Notifications API (checks every 5 min, fires within target time window).
 - **Pay Now button** — appears when balance > $0 and no pending payment exists
-- **Payment modal** — Zelle (purple) and Venmo (blue) deep links, fallback manual instructions
-- **Pending payment write** — creates `status: "pending"` record in Firebase
-- **Payment history** — collapsible, with status badges
-- **Cancel pending payment** — deletes pending record from Firebase
-- Placeholder phone number in Zelle/Venmo links (replace `PHONE` in parent.html)
+- **Payment modal** — bottom-sheet style. Zelle (916-889-2921, tap to copy), Venmo (@studiosimon), PayPal (paypal.me/simonotog)
+- **Payment history** — visual timeline with colored dots (green=confirmed, yellow=pending, red=rejected)
+- **Child selector** — pill bar for multi-child families on Practice/Messages tabs
+- **Mobile-first** — bottom sheet modals, touch-friendly toggles, safe area insets, no-bounce scroll
+
+### New Database Paths
+```
+professorOfFunk/
+  messages/{studentKey}/{msgId}: { from: "parent"|"teacher", text, timestamp, parentId? }
+  events/{eventId}: { title, date, time?, location?, description?, students?: [studentKey, ...] }
+  parentReminders/{parentId}: { practiceReminder: bool, reminderTime: "HH:MM", weeklySummary: bool, paymentReminder: bool, lastRead_{studentKey}: timestamp }
+```
 
 ## UI Patterns
 - `h(tag, attrs, ...children)` — DOM builder helper used throughout

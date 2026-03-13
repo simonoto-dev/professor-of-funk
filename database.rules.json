@@ -64,6 +64,25 @@
       "lessonTranscripts": {
         ".read": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'",
         ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'"
+      },
+      "messages": {
+        ".read": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'",
+        "$studentId": {
+          ".read": "auth != null",
+          "$msgId": {
+            ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1' || (auth != null && newData.child('from').val() === 'parent' && newData.child('text').isString() && newData.child('text').val().length <= 1000)"
+          }
+        }
+      },
+      "events": {
+        ".read": "auth != null",
+        ".write": "auth.uid === 'FRLOpQbA69dhh7pCvx45fdPfkbz1'"
+      },
+      "parentReminders": {
+        "$parentId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
       }
     }
   }

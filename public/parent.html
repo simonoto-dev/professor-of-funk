@@ -22,7 +22,7 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;}
 body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.5;}
-input,button{font-family:inherit;font-size:inherit;}
+input,button,textarea{font-family:inherit;font-size:inherit;}
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding-top:var(--safe-top);}
 .header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;height:52px;flex-shrink:0;}
 .logo{display:flex;align-items:center;gap:8px;margin-right:auto;}
@@ -32,9 +32,19 @@ input,button{font-family:inherit;font-size:inherit;}
 .header-user{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px;}
 .header-user span{color:var(--accent);font-weight:600;}
 .header-logout{background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--muted);font-size:10px;cursor:pointer;margin-left:8px;}
-.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;padding-bottom:calc(16px + var(--safe-bottom));}
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;padding-bottom:calc(70px + var(--safe-bottom));}
 .section-title{font-family:'DM Serif Display',Georgia,serif;font-size:20px;margin:0 0 4px;}
 .section-sub{color:var(--muted);font-size:12px;margin:0 0 16px;}
+
+/* Bottom nav */
+.bottom-nav{display:flex;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:var(--safe-bottom);z-index:100;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;font-weight:500;transition:color 0.2s;}
+.nav-btn.active{color:var(--accent);}
+.nav-btn .nav-icon{font-size:18px;line-height:1;}
+.nav-btn .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--red);display:none;}
+.nav-btn.has-unread .nav-dot{display:block;}
+
+/* Child card */
 .child-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;border-left:3px solid var(--accent);}
 .child-name{font-family:'DM Serif Display',Georgia,serif;font-size:18px;margin-bottom:2px;}
 .child-meta{color:var(--muted);font-size:11px;margin-bottom:14px;}
@@ -48,6 +58,8 @@ input,button{font-family:inherit;font-size:inherit;}
 .badge-red{background:rgba(248,113,113,0.15);color:var(--red);}
 .badge-yellow{background:rgba(251,191,36,0.15);color:var(--yellow);}
 .badge-accent{background:var(--accent-glow);color:var(--accent);}
+.badge-blue{background:rgba(96,165,250,0.15);color:var(--blue);}
+.badge-purple{background:rgba(192,132,252,0.15);color:var(--purple);}
 
 /* Auth screens */
 .auth-screen{display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg);}
@@ -68,12 +80,12 @@ input,button{font-family:inherit;font-size:inherit;}
 .auth-success{color:var(--green);font-size:12px;margin-top:8px;display:none;}
 
 /* Pay Now modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:400px;width:100%;max-height:80vh;overflow-y:auto;padding:24px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:0;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px 16px 0 0;max-width:500px;width:100%;max-height:85vh;overflow-y:auto;padding:24px;padding-bottom:calc(24px + var(--safe-bottom));}
 .modal-title{font-family:'DM Serif Display',Georgia,serif;font-size:20px;margin-bottom:4px;}
 .modal-sub{color:var(--muted);font-size:12px;margin-bottom:20px;}
 .pay-option{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);margin-bottom:8px;cursor:pointer;text-decoration:none;color:var(--text);transition:border-color 0.2s;}
-.pay-option:hover{border-color:var(--accent);}
+.pay-option:hover,.pay-option:active{border-color:var(--accent);}
 .pay-icon{font-size:24px;flex-shrink:0;}
 .pay-name{font-weight:600;font-size:14px;}
 .pay-detail{font-size:11px;color:var(--muted);}
@@ -92,7 +104,7 @@ input,button{font-family:inherit;font-size:inherit;}
 .expandable .expand-chevron{font-size:10px;color:var(--muted);transition:transform 0.2s;flex-shrink:0;margin-left:8px;}
 .expandable.open .expand-chevron{transform:rotate(180deg);}
 .expand-body{overflow:hidden;max-height:0;transition:max-height 0.3s ease;}
-.expandable.open .expand-body{max-height:2000px;}
+.expandable.open .expand-body{max-height:5000px;}
 
 /* Section headers */
 .section-header{display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer;user-select:none;}
@@ -110,6 +122,35 @@ input,button{font-family:inherit;font-size:inherit;}
 .practice-check.checked{background:var(--accent-glow);border-color:var(--accent);color:var(--accent);}
 .practice-check.future{opacity:0.3;}
 
+/* Practice heatmap */
+.heatmap-container{margin:8px 0 12px;}
+.heatmap-month-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+.heatmap-grid{display:grid;gap:3px;}
+.heatmap-row{display:flex;gap:3px;align-items:center;}
+.heatmap-day-label{font-size:9px;color:var(--muted);width:22px;text-align:right;flex-shrink:0;margin-right:4px;}
+.heatmap-cell{width:14px;height:14px;border-radius:3px;background:var(--surface2);flex-shrink:0;}
+.heatmap-cell.level-1{background:rgba(74,222,128,0.2);}
+.heatmap-cell.level-2{background:rgba(74,222,128,0.4);}
+.heatmap-cell.level-3{background:rgba(74,222,128,0.65);}
+.heatmap-cell.level-4{background:rgba(74,222,128,0.9);}
+.heatmap-cell.today{outline:2px solid var(--accent);outline-offset:-1px;}
+.heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:8px;justify-content:flex-end;}
+.heatmap-legend span{font-size:9px;color:var(--muted);}
+.heatmap-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.heatmap-nav button{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px;}
+.heatmap-nav button:hover{color:var(--accent);}
+.heatmap-month-title{font-family:'DM Serif Display',Georgia,serif;font-size:16px;}
+
+/* Progress charts */
+.chart-container{margin:8px 0;}
+.chart-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.chart-bar-label{font-size:11px;color:var(--muted);width:80px;flex-shrink:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.chart-bar-track{flex:1;height:20px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative;}
+.chart-bar-fill{height:100%;border-radius:4px;transition:width 0.5s ease;display:flex;align-items:center;padding-left:6px;}
+.chart-bar-value{font-size:9px;font-weight:700;color:#000;white-space:nowrap;}
+.milestone-count{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.milestone-chip{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+
 /* Song scores */
 .song-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
 .song-row:last-child{border-bottom:none;}
@@ -126,6 +167,17 @@ input,button{font-family:inherit;font-size:inherit;}
 .timeline-item{position:relative;padding-bottom:12px;}
 .timeline-item::before{content:'';position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;border:2px solid var(--accent);background:var(--bg);}
 .timeline-item.completed::before{background:var(--accent);}
+
+/* Payment timeline */
+.pay-timeline{position:relative;padding-left:20px;}
+.pay-timeline::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:2px;background:var(--border);}
+.pay-tl-item{position:relative;padding-bottom:14px;}
+.pay-tl-item::before{content:'';position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;}
+.pay-tl-item.confirmed::before{background:var(--green);}
+.pay-tl-item.pending::before{background:var(--yellow);}
+.pay-tl-item.rejected::before{background:var(--red);}
+.pay-tl-item.default::before{background:var(--accent);}
+.pay-tl-card{background:var(--surface2);border-radius:10px;padding:10px 12px;}
 
 /* Lesson cards */
 .lesson-card-parent{background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:6px;}
@@ -146,8 +198,56 @@ input,button{font-family:inherit;font-size:inherit;}
 /* Pay Now inline hint */
 .pay-hint{font-size:10px;color:var(--red);font-weight:600;margin-left:auto;flex-shrink:0;}
 
+/* Messages */
+.msg-thread{max-height:350px;overflow-y:auto;padding:4px 0;margin-bottom:8px;}
+.msg-bubble{max-width:85%;padding:8px 12px;border-radius:14px;margin-bottom:6px;font-size:13px;line-height:1.4;word-wrap:break-word;}
+.msg-bubble.from-teacher{background:var(--surface2);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px;}
+.msg-bubble.from-parent{background:var(--accent-glow);border:1px solid rgba(212,148,58,0.3);margin-left:auto;border-bottom-right-radius:4px;}
+.msg-time{font-size:9px;color:var(--muted);margin-top:2px;}
+.msg-sender{font-size:9px;font-weight:600;color:var(--accent);margin-bottom:2px;}
+.msg-input-row{display:flex;gap:8px;align-items:flex-end;}
+.msg-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:8px 14px;color:var(--text);font-size:13px;outline:none;resize:none;min-height:36px;max-height:100px;}
+.msg-input:focus{border-color:var(--accent);}
+.msg-send{background:var(--accent);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:16px;}
+.msg-send:disabled{opacity:0.4;cursor:default;}
+
+/* Events calendar */
+.event-card{background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:6px;border-left:3px solid var(--accent);}
+.event-date-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.3px;}
+.event-title{font-size:14px;font-weight:600;margin:3px 0 2px;}
+.event-detail{font-size:11px;color:var(--muted);}
+.event-empty{text-align:center;padding:20px;color:var(--muted);font-size:12px;}
+
+/* Percentile card */
+.percentile-card{background:var(--surface2);border-radius:10px;padding:14px;text-align:center;margin-top:10px;}
+.percentile-ring{width:80px;height:80px;margin:0 auto 8px;position:relative;}
+.percentile-ring svg{transform:rotate(-90deg);}
+.percentile-ring .ring-bg{stroke:var(--border);fill:none;stroke-width:6;}
+.percentile-ring .ring-fill{fill:none;stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset 0.8s ease;}
+.percentile-number{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',Georgia,serif;font-size:22px;font-weight:700;}
+.percentile-label{font-size:12px;color:var(--muted);margin-top:4px;}
+.percentile-note{font-size:10px;color:var(--muted);margin-top:4px;font-style:italic;}
+
+/* Reminder toggle */
+.reminder-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
+.reminder-label{font-size:13px;}
+.reminder-sub{font-size:10px;color:var(--muted);}
+.toggle-switch{position:relative;width:44px;height:24px;cursor:pointer;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-track{position:absolute;inset:0;background:var(--border);border-radius:12px;transition:background 0.2s;}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform 0.2s;}
+.toggle-switch input:checked + .toggle-track{background:var(--accent);}
+.toggle-switch input:checked + .toggle-track + .toggle-thumb{transform:translateX(20px);}
+.reminder-time-select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 8px;color:var(--text);font-size:12px;outline:none;}
+
+/* Child selector (for multi-child families on non-dashboard tabs) */
+.child-selector{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;}
+.child-pill{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.child-pill.active{background:var(--accent-glow);border-color:var(--accent);color:var(--accent);}
+
 @media(min-width:700px){
   .stats-row{grid-template-columns:repeat(4,1fr);}
+  .modal{border-radius:16px;margin-bottom:20px;}
 }
 ::-webkit-scrollbar{width:6px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
@@ -239,14 +339,22 @@ function dbRef(path) { return fbDb.ref(DB_ROOT + "/" + path); }
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 
 /* ===== STATE ===== */
-let currentParentId = null;  // parent record key (e.g. "rosenbluth1")
-let parentData = null;       // parents/{parentId} record
-let childrenData = {};       // studentKey -> student record
-let childrenKeys = [];       // ordered child keys
-let authMode = null;         // 'code' | 'returning'
-let pendingUpgrade = false;  // true when signed in via code, upgrade not yet done
-let payModalStudent = null;  // student key for Pay Now modal
+let currentParentId = null;
+let parentData = null;
+let childrenData = {};
+let childrenKeys = [];
+let allStudentsPractice = {};  // for percentile calc (anonymized)
+let authMode = null;
+let pendingUpgrade = false;
+let payModalStudent = null;
 let expandedSections = new Set();
+let activeTab = 'dashboard';
+let selectedChildIdx = 0;
+let heatmapMonth = new Date();  // month being viewed in heatmap
+let messagesData = {};   // studentKey -> array of messages
+let eventsData = [];     // array of events
+let remindersData = {};  // parentId -> reminder settings
+let unreadMessages = false;
 
 /* ===== SCREEN MANAGEMENT ===== */
 const screens = ['screen-landing', 'screen-upgrade', 'screen-signin', 'screen-loading'];
@@ -276,16 +384,13 @@ async function submitCode() {
   if (!code) return;
   hideErr('code-err');
   try {
-    // 1. Look up parent access code
     const snap = await fbDb.ref(DB_ROOT + '/meta/parentAccessCodes/' + code).once('value');
     const parentId = snap.val();
     if (!parentId) { showErr('code-err', 'Invalid access code'); return; }
 
-    // 2. Get the stored accessCode from parent profile (password was created with it)
     const parentProfileSnap = await fbDb.ref(DB_ROOT + '/parents/' + parentId + '/profile/accessCode').once('value');
     const storedCode = parentProfileSnap.val() || code;
 
-    // 3. Sign in with synthetic Firebase Auth account
     await firebase.auth().signInWithEmailAndPassword(
       parentId + '@parent.professoroffunk.app',
       storedCode + '!PoF'
@@ -294,14 +399,11 @@ async function submitCode() {
     currentParentId = parentId;
     authMode = 'code';
 
-    // 3. Check if this user already has a userProfile (already upgraded)
     const uid = firebase.auth().currentUser.uid;
     const profileSnap = await dbRef('userProfiles/' + uid).once('value');
     if (profileSnap.val()) {
-      // Already upgraded — go straight to dashboard
       await loadAndShow();
     } else {
-      // Show upgrade prompt
       pendingUpgrade = true;
       showScreen('screen-upgrade');
     }
@@ -379,7 +481,6 @@ async function writeUserProfile(uid) {
       createdAt: new Date().toISOString()
     });
   } catch (e) {
-    // write-once rule: if profile already exists, that's fine
     console.warn('userProfile write:', e.code || e.message);
   }
 }
@@ -443,7 +544,6 @@ async function resolveFromProfile() {
 /* ===== AUTO-LOGIN ===== */
 firebase.auth().onAuthStateChanged(async user => {
   if (!user || currentParentId) return;
-  // Check for existing userProfile
   showScreen('screen-loading');
   try {
     const snap = await dbRef('userProfiles/' + user.uid).once('value');
@@ -465,8 +565,10 @@ firebase.auth().onAuthStateChanged(async user => {
 async function loadAndShow() {
   showScreen('screen-loading');
   await loadParentData();
+  await loadExtraData();
   showApp();
   render();
+  subscribeMessages();
 }
 
 async function loadParentData() {
@@ -475,7 +577,6 @@ async function loadParentData() {
     const pSnap = await dbRef("parents/" + currentParentId).once("value");
     parentData = pSnap.val();
 
-    // Determine children keys from parent record or userProfile
     let keys = [];
     if (parentData && parentData.children) {
       keys = Object.keys(parentData.children);
@@ -501,8 +602,73 @@ async function loadParentData() {
   }
 }
 
+async function loadExtraData() {
+  try {
+    // Load events
+    const evSnap = await dbRef("events").once("value");
+    const evRaw = evSnap.val() || {};
+    eventsData = Object.entries(evRaw).map(([id, ev]) => ({ id, ...ev }))
+      .filter(ev => new Date(ev.date) >= new Date(new Date().toDateString()))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  } catch (e) {
+    eventsData = [];
+  }
+
+  try {
+    // Load reminder settings
+    const remSnap = await dbRef("parentReminders/" + currentParentId).once("value");
+    remindersData = remSnap.val() || {};
+  } catch (e) {
+    remindersData = {};
+  }
+
+  // Load anonymous practice data for all active students (for percentile)
+  try {
+    const allSnap = await dbRef("students").once("value");
+    const allStudents = allSnap.val() || {};
+    allStudentsPractice = {};
+    Object.entries(allStudents).forEach(([k, s]) => {
+      if (s.profile && s.profile.active !== false) {
+        allStudentsPractice[k] = s.practice || {};
+      }
+    });
+  } catch (e) {
+    // Parent may not have read access to all students — use only own children
+    allStudentsPractice = {};
+    Object.entries(childrenData).forEach(([k, s]) => {
+      allStudentsPractice[k] = s.practice || {};
+    });
+  }
+}
+
+/* ===== REALTIME MESSAGES ===== */
+let messageListeners = [];
+function subscribeMessages() {
+  // Unsubscribe old
+  messageListeners.forEach(fn => fn());
+  messageListeners = [];
+
+  childrenKeys.forEach(key => {
+    const ref = dbRef("messages/" + key);
+    const cb = ref.on('value', snap => {
+      const raw = snap.val() || {};
+      messagesData[key] = Object.entries(raw)
+        .map(([id, m]) => ({ id, ...m }))
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      // Check unread
+      const lastRead = remindersData['lastRead_' + key] || 0;
+      const hasNew = messagesData[key].some(m => m.from === 'teacher' && (m.timestamp || 0) > lastRead);
+      if (hasNew) unreadMessages = true;
+      render();
+    });
+    messageListeners.push(() => ref.off('value', cb));
+  });
+}
+
 /* ===== LOGOUT ===== */
 function logout() {
+  messageListeners.forEach(fn => fn());
+  messageListeners = [];
   firebase.auth().signOut();
   currentParentId = null;
   parentData = null;
@@ -512,6 +678,12 @@ function logout() {
   pendingUpgrade = false;
   payModalStudent = null;
   expandedSections.clear();
+  activeTab = 'dashboard';
+  selectedChildIdx = 0;
+  messagesData = {};
+  eventsData = [];
+  remindersData = {};
+  unreadMessages = false;
   showScreen('screen-landing');
   document.getElementById('code-input').value = '';
   hideErr('code-err');
@@ -552,7 +724,6 @@ function getBalance(student) {
       }
     });
   });
-  // Fallback: if no rateSnapshots, use program rate * attended count
   if (totalTuition === 0) {
     Object.entries(student.programs || {}).forEach(([pid, prog]) => {
       const attended = Object.values((student.attendance || {})[pid] || {})
@@ -619,6 +790,24 @@ function calcMonthlyDays(practice) {
   return { practiced: count, elapsed: now.getDate() };
 }
 
+function didPracticeOnDate(practice, date) {
+  const dayNames = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const wk = getWeekId(date);
+  const dayIdx = (date.getDay() + 6) % 7;
+  const weekData = practice[wk];
+  return weekData && weekData[dayNames[dayIdx]] ? true : false;
+}
+
+function getMonthPracticeDays(practice, year, month) {
+  const days = {};
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d);
+    days[d] = didPracticeOnDate(practice, dt);
+  }
+  return days;
+}
+
 function fmtCurrency(n) {
   return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -626,6 +815,23 @@ function fmtCurrency(n) {
 function fmtDate(d) {
   if (!d) return '';
   return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fmtDateShort(d) {
+  if (!d) return '';
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now - d;
+  if (diffMs < 60000) return 'now';
+  if (diffMs < 3600000) return Math.floor(diffMs / 60000) + 'm ago';
+  if (diffMs < 86400000) return Math.floor(diffMs / 3600000) + 'h ago';
+  if (diffMs < 604800000) return Math.floor(diffMs / 86400000) + 'd ago';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function getCurrentWeekDates() {
@@ -676,7 +882,6 @@ function makeExpandableSection(sectionId, icon, label, hint, contentFn) {
 }
 
 function getNextLessonText(student) {
-  // Check program records first, then fall back to profile
   const programs = Object.values(student.programs || {});
   const privateLesson = programs.find(p => p.type === 'private');
   const day = (privateLesson && privateLesson.lessonDay) || (student.profile && student.profile.lessonDay);
@@ -688,6 +893,25 @@ function getNextLessonText(student) {
 function getEnsembleNames(student) {
   const programs = Object.values(student.programs || {});
   return programs.filter(p => p.type === 'ensemble').map(p => p.name);
+}
+
+function getSelectedChild() {
+  const key = childrenKeys[selectedChildIdx] || childrenKeys[0];
+  return key ? { key, student: childrenData[key] } : null;
+}
+
+/* ===== PRACTICE PERCENTILE ===== */
+function calcPracticePercentile(studentKey) {
+  const allMonthly = [];
+  Object.entries(allStudentsPractice).forEach(([k, practice]) => {
+    const m = calcMonthlyDays(practice);
+    allMonthly.push({ key: k, ratio: m.elapsed > 0 ? m.practiced / m.elapsed : 0 });
+  });
+  if (allMonthly.length < 3) return null; // need at least 3 students
+  allMonthly.sort((a, b) => a.ratio - b.ratio);
+  const idx = allMonthly.findIndex(s => s.key === studentKey);
+  if (idx === -1) return null;
+  return Math.round((idx / (allMonthly.length - 1)) * 100);
 }
 
 /* ===== CHILD SECTION RENDERERS ===== */
@@ -821,7 +1045,6 @@ function renderChildPayments(key, student) {
   const pending = hasPendingPayment(student);
   const parts = [];
 
-  // Pay Now button
   if (balance > 0 && !pending) {
     parts.push(h('button', {
       style: {
@@ -833,7 +1056,6 @@ function renderChildPayments(key, student) {
     }, 'Pay Now \u2014 ' + fmtCurrency(balance)));
   }
 
-  // Pending payment badge
   if (pending) {
     const pendingId = getPendingPaymentId(student);
     const pendingPay = student.payments[pendingId];
@@ -859,14 +1081,18 @@ function renderChildPayments(key, student) {
     ));
   }
 
-  // Payment history
+  // Payment history as timeline
   const payments = Object.entries(student.payments || {})
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   if (payments.length > 0) {
-    parts.push(h('div', { style: { marginTop: '4px' } },
+    parts.push(h('div', { class: 'pay-timeline', style: { marginTop: '4px' } },
       ...payments.map(pay => {
+        const statusClass = pay.status === 'confirmed' ? 'confirmed'
+          : pay.status === 'pending' ? 'pending'
+          : pay.status === 'rejected' ? 'rejected'
+          : 'default';
         const statusStyle = pay.status === 'confirmed'
           ? { bg: 'rgba(74,222,128,0.15)', color: 'var(--green)', label: 'Confirmed' }
           : pay.status === 'pending'
@@ -874,13 +1100,18 @@ function renderChildPayments(key, student) {
           : pay.status === 'rejected'
           ? { bg: 'rgba(248,113,113,0.15)', color: 'var(--red)', label: 'Rejected' }
           : { bg: 'var(--accent-glow)', color: 'var(--accent)', label: pay.status || 'Paid' };
-        return h('div', { class: 'payment-row' },
-          h('div', {},
-            h('div', { class: 'payment-amount' }, fmtCurrency(pay.amount)),
-            h('div', { class: 'payment-date' }, fmtDate(pay.date)),
-            pay.method ? h('div', { class: 'payment-method' }, pay.method) : ''
-          ),
-          h('span', { class: 'badge', style: { background: statusStyle.bg, color: statusStyle.color } }, statusStyle.label)
+        return h('div', { class: 'pay-tl-item ' + statusClass },
+          h('div', { class: 'pay-tl-card' },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              h('div', { class: 'payment-amount' }, fmtCurrency(pay.amount)),
+              h('span', { class: 'badge', style: { background: statusStyle.bg, color: statusStyle.color } }, statusStyle.label)
+            ),
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: '4px' } },
+              h('div', { class: 'payment-date' }, fmtDate(pay.date)),
+              pay.method ? h('div', { class: 'payment-method' }, pay.method) : ''
+            ),
+            pay.note ? h('div', { style: { fontSize: '11px', color: 'var(--muted)', marginTop: '4px' } }, pay.note) : ''
+          )
         );
       })
     ));
@@ -931,6 +1162,411 @@ function renderChildLessons(key, student) {
   );
 }
 
+/* ===== PRACTICE HEATMAP ===== */
+function renderPracticeHeatmap(key, student) {
+  const practice = student.practice || {};
+  const year = heatmapMonth.getFullYear();
+  const month = heatmapMonth.getMonth();
+  const monthName = heatmapMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay(); // 0=Sun
+  const practiceDays = getMonthPracticeDays(practice, year, month);
+  const today = new Date();
+  const isCurrentMonth = (year === today.getFullYear() && month === today.getMonth());
+
+  // Build 7-column calendar grid
+  const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const cells = [];
+
+  // Header row
+  const headerRow = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px', marginBottom: '4px' } },
+    ...dayLabels.map(dl => h('div', { style: { textAlign: 'center', fontSize: '9px', color: 'var(--muted)', fontWeight: '600' } }, dl))
+  );
+
+  // Calendar cells
+  const rows = [];
+  let currentRow = [];
+  // Empty cells before first day
+  for (let i = 0; i < firstDow; i++) currentRow.push(h('div', { style: { width: '100%', aspectRatio: '1' } }));
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const practiced = practiceDays[d];
+    const dt = new Date(year, month, d);
+    const isFuture = dt > today;
+    const isToday = dt.toDateString() === today.toDateString();
+    let levelClass = '';
+    if (practiced && !isFuture) levelClass = 'level-3';
+    if (isFuture) levelClass = '';
+
+    const cell = h('div', {
+      style: { width: '100%', aspectRatio: '1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', position: 'relative',
+        background: practiced && !isFuture ? 'rgba(74,222,128,0.5)' : isFuture ? 'transparent' : 'var(--surface2)',
+        color: practiced && !isFuture ? 'var(--green)' : isFuture ? 'var(--muted)' : 'var(--muted)',
+        opacity: isFuture ? 0.3 : 1,
+        outline: isToday ? '2px solid var(--accent)' : 'none',
+        outlineOffset: '-1px'
+      }
+    }, '' + d);
+    currentRow.push(cell);
+    if (currentRow.length === 7) {
+      rows.push(h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px' } }, ...currentRow));
+      currentRow = [];
+    }
+  }
+  if (currentRow.length > 0) {
+    while (currentRow.length < 7) currentRow.push(h('div', { style: { width: '100%', aspectRatio: '1' } }));
+    rows.push(h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px' } }, ...currentRow));
+  }
+
+  // Monthly stats
+  const totalPracticed = Object.values(practiceDays).filter(Boolean).length;
+  const maxDays = isCurrentMonth ? today.getDate() : daysInMonth;
+  const pct = maxDays > 0 ? Math.round((totalPracticed / maxDays) * 100) : 0;
+
+  const canGoForward = !(year === today.getFullYear() && month === today.getMonth());
+
+  return h('div', { class: 'heatmap-container' },
+    h('div', { class: 'heatmap-nav' },
+      h('button', { onClick: (e) => { e.stopPropagation(); heatmapMonth = new Date(year, month - 1, 1); render(); } }, '\u2039'),
+      h('div', { class: 'heatmap-month-title' }, monthName),
+      canGoForward
+        ? h('button', { onClick: (e) => { e.stopPropagation(); heatmapMonth = new Date(year, month + 1, 1); render(); } }, '\u203A')
+        : h('div', { style: { width: '32px' } })
+    ),
+    headerRow,
+    ...rows,
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' } },
+      h('div', { style: { fontSize: '12px', color: 'var(--muted)' } },
+        totalPracticed + ' of ' + maxDays + ' days (' + pct + '%)'),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: '4px' } },
+        h('span', { style: { fontSize: '9px', color: 'var(--muted)' } }, 'None'),
+        h('div', { style: { width: '10px', height: '10px', borderRadius: '2px', background: 'var(--surface2)' } }),
+        h('div', { style: { width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(74,222,128,0.5)' } }),
+        h('span', { style: { fontSize: '9px', color: 'var(--muted)' } }, 'Practiced')
+      )
+    )
+  );
+}
+
+/* ===== PROGRESS CHARTS ===== */
+function renderProgressCharts(key, student) {
+  const parts = [];
+  const songScores = student.songScores
+    ? Object.entries(student.songScores).sort((a, b) => (b[1].score || 0) - (a[1].score || 0))
+    : [];
+
+  // Song score bars
+  if (songScores.length > 0) {
+    parts.push(h('div', { style: { fontSize: '10px', fontWeight: '600', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' } }, 'Song Mastery'));
+    const barColors = ['var(--red)', 'var(--yellow)', 'var(--accent)', 'var(--blue)', 'var(--green)'];
+    parts.push(h('div', { class: 'chart-container' },
+      ...songScores.map(([, song]) => {
+        const pct = ((song.score || 0) / 5) * 100;
+        const color = barColors[Math.max(0, (song.score || 1) - 1)];
+        return h('div', { class: 'chart-bar-row' },
+          h('div', { class: 'chart-bar-label', title: song.title }, song.title),
+          h('div', { class: 'chart-bar-track' },
+            h('div', { class: 'chart-bar-fill', style: { width: pct + '%', background: color } },
+              pct > 20 ? h('span', { class: 'chart-bar-value' }, SCORE_LABELS[song.score] || '') : ''
+            )
+          )
+        );
+      })
+    ));
+  }
+
+  // Milestones by category count
+  const milestones = Object.values(student.milestones || {});
+  if (milestones.length > 0) {
+    const catCounts = {};
+    milestones.forEach(m => {
+      const cat = m.category || 'other';
+      catCounts[cat] = (catCounts[cat] || 0) + 1;
+    });
+    parts.push(h('div', { style: { marginTop: songScores.length > 0 ? '16px' : '0' } },
+      h('div', { style: { fontSize: '10px', fontWeight: '600', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' } },
+        'Milestones Achieved (' + milestones.length + ' total)'),
+      h('div', { class: 'milestone-count' },
+        ...Object.entries(catCounts).map(([cat, count]) => {
+          const cc = CATEGORY_COLORS[cat] || CATEGORY_COLORS.technique;
+          return h('div', { class: 'milestone-chip', style: { background: cc.bg, color: cc.color } },
+            count + ' ' + cat);
+        })
+      )
+    ));
+  }
+
+  // Percentile
+  const pctl = calcPracticePercentile(key);
+  if (pctl !== null) {
+    const circumference = 2 * Math.PI * 34;
+    const dashOffset = circumference - (pctl / 100) * circumference;
+    const ringColor = pctl >= 70 ? 'var(--green)' : pctl >= 40 ? 'var(--yellow)' : 'var(--red)';
+    parts.push(h('div', { class: 'percentile-card', style: { marginTop: '12px' } },
+      h('div', { class: 'percentile-ring' },
+        h('svg', { width: '80', height: '80', viewBox: '0 0 80 80' },
+          h('circle', { class: 'ring-bg', cx: '40', cy: '40', r: '34' }),
+          h('circle', { class: 'ring-fill', cx: '40', cy: '40', r: '34',
+            stroke: ringColor,
+            'stroke-dasharray': '' + circumference,
+            'stroke-dashoffset': '' + dashOffset
+          })
+        ),
+        h('div', { class: 'percentile-number' }, pctl + '%')
+      ),
+      h('div', { class: 'percentile-label' }, 'Practice Percentile'),
+      h('div', { class: 'percentile-note' },
+        pctl >= 70 ? 'Practicing more than ' + pctl + '% of students!'
+          : pctl >= 40 ? 'In the middle of the pack'
+          : 'Room to grow \u2014 every day counts!')
+    ));
+  }
+
+  if (parts.length === 0) {
+    return h('p', { style: { color: 'var(--muted)', fontSize: '12px' } }, 'Progress data will appear as scores and milestones are recorded.');
+  }
+
+  return h('div', {}, ...parts);
+}
+
+/* ===== MESSAGES ===== */
+async function sendMessage(studentKey, text) {
+  if (!text.trim()) return;
+  const msgId = 'msg-' + Date.now();
+  const msg = {
+    from: 'parent',
+    parentId: currentParentId,
+    text: text.trim(),
+    timestamp: firebase.database.ServerValue.TIMESTAMP
+  };
+  try {
+    await dbRef('messages/' + studentKey + '/' + msgId).set(msg);
+  } catch (e) {
+    console.error('Send message failed:', e);
+    alert('Failed to send message. Please try again.');
+  }
+}
+
+function renderMessagesTab() {
+  const child = getSelectedChild();
+  if (!child) return h('div', { class: 'event-empty' }, 'No student selected.');
+  const { key, student } = child;
+  const msgs = messagesData[key] || [];
+  const name = (student.profile || {}).name || key;
+
+  // Mark as read
+  const now = Date.now();
+  dbRef('parentReminders/' + currentParentId + '/lastRead_' + key).set(now).catch(() => {});
+  remindersData['lastRead_' + key] = now;
+  unreadMessages = false;
+
+  const thread = h('div', { class: 'msg-thread', id: 'msg-thread-' + key },
+    msgs.length === 0
+      ? h('div', { style: { textAlign: 'center', padding: '30px', color: 'var(--muted)', fontSize: '12px' } },
+          'No messages yet. Send a message to ' + name + '\'s teacher.')
+      : h('div', { style: { display: 'flex', flexDirection: 'column' } },
+          ...msgs.map(m => {
+            const isTeacher = m.from === 'teacher';
+            return h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: isTeacher ? 'flex-start' : 'flex-end', marginBottom: '4px' } },
+              h('div', { class: 'msg-bubble ' + (isTeacher ? 'from-teacher' : 'from-parent') },
+                isTeacher ? h('div', { class: 'msg-sender' }, 'Prof. Funk') : '',
+                h('div', {}, m.text)
+              ),
+              h('div', { class: 'msg-time' }, fmtTime(m.timestamp))
+            );
+          })
+        )
+  );
+
+  // Auto-scroll to bottom after render
+  setTimeout(() => {
+    const el = document.getElementById('msg-thread-' + key);
+    if (el) el.scrollTop = el.scrollHeight;
+  }, 50);
+
+  const input = h('textarea', { class: 'msg-input', placeholder: 'Type a message...', rows: '1',
+    onInput: (e) => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; },
+    onKeydown: (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const text = e.target.value;
+        if (text.trim()) { sendMessage(key, text); e.target.value = ''; e.target.style.height = 'auto'; }
+      }
+    }
+  });
+  const sendBtn = h('button', { class: 'msg-send', onClick: () => {
+    const text = input.value;
+    if (text.trim()) { sendMessage(key, text); input.value = ''; input.style.height = 'auto'; }
+  } }, '\u27A4');
+
+  return h('div', {},
+    renderChildSelector(),
+    h('div', { style: { fontSize: '10px', fontWeight: '600', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' } },
+      'Messages about ' + name),
+    thread,
+    h('div', { class: 'msg-input-row' }, input, sendBtn)
+  );
+}
+
+/* ===== EVENTS TAB ===== */
+function renderEventsTab() {
+  const parts = [];
+
+  if (eventsData.length === 0) {
+    parts.push(h('div', { class: 'event-empty' },
+      'No upcoming events or recitals scheduled. Check back later!'));
+  } else {
+    eventsData.forEach(ev => {
+      const dt = new Date(ev.date + 'T12:00:00');
+      const dayName = dt.toLocaleDateString('en-US', { weekday: 'short' });
+      const monthDay = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const daysUntil = Math.ceil((dt - new Date()) / 86400000);
+      const urgency = daysUntil <= 3 ? 'var(--red)' : daysUntil <= 7 ? 'var(--yellow)' : 'var(--accent)';
+
+      parts.push(h('div', { class: 'event-card', style: { borderLeftColor: urgency } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+          h('div', { class: 'event-date-pill' }, dayName + ', ' + monthDay),
+          h('span', { class: 'badge', style: { background: urgency === 'var(--red)' ? 'rgba(248,113,113,0.15)' : urgency === 'var(--yellow)' ? 'rgba(251,191,36,0.15)' : 'var(--accent-glow)', color: urgency } },
+            daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : daysUntil + ' days')
+        ),
+        h('div', { class: 'event-title' }, ev.title),
+        ev.time ? h('div', { class: 'event-detail' }, ev.time) : '',
+        ev.location ? h('div', { class: 'event-detail' }, ev.location) : '',
+        ev.description ? h('div', { style: { fontSize: '12px', color: 'var(--muted)', marginTop: '4px', lineHeight: '1.4' } }, ev.description) : '',
+        ev.students && ev.students.length > 0
+          ? h('div', { style: { marginTop: '6px', display: 'flex', gap: '4px', flexWrap: 'wrap' } },
+              ...ev.students.filter(sk => childrenKeys.includes(sk)).map(sk => {
+                const name = (childrenData[sk] && childrenData[sk].profile && childrenData[sk].profile.name) || sk;
+                return h('span', { class: 'badge badge-accent' }, name);
+              })
+            )
+          : ''
+      ));
+    });
+  }
+
+  return h('div', {},
+    h('h2', { class: 'section-title' }, 'Upcoming Events'),
+    h('p', { class: 'section-sub' }, 'Recitals, ensembles, and performances'),
+    ...parts
+  );
+}
+
+/* ===== REMINDERS TAB (SETTINGS) ===== */
+function renderSettingsTab() {
+  const parts = [];
+
+  // Practice reminders
+  parts.push(h('div', { style: { marginBottom: '20px' } },
+    h('div', { style: { fontSize: '10px', fontWeight: '600', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' } }, 'Practice Reminders'),
+    h('div', { style: { background: 'var(--surface)', borderRadius: '12px', padding: '12px 16px', border: '1px solid var(--border)' } },
+      h('div', { class: 'reminder-row' },
+        h('div', {},
+          h('div', { class: 'reminder-label' }, 'Daily practice reminder'),
+          h('div', { class: 'reminder-sub' }, 'Get a notification if your child hasn\'t practiced today')
+        ),
+        createToggle('practiceReminder', remindersData.practiceReminder || false, async (val) => {
+          remindersData.practiceReminder = val;
+          await dbRef('parentReminders/' + currentParentId + '/practiceReminder').set(val).catch(() => {});
+          if (val && 'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+          }
+          render();
+        })
+      ),
+      remindersData.practiceReminder ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border)' } },
+        h('span', { style: { fontSize: '12px', color: 'var(--muted)' } }, 'Remind at'),
+        h('select', {
+          class: 'reminder-time-select',
+          value: remindersData.reminderTime || '17:00',
+          onChange: async (e) => {
+            remindersData.reminderTime = e.target.value;
+            await dbRef('parentReminders/' + currentParentId + '/reminderTime').set(e.target.value).catch(() => {});
+          }
+        },
+          ...['15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map(t =>
+            h('option', { value: t, ...(t === (remindersData.reminderTime || '17:00') ? { selected: '' } : {}) },
+              new Date('2000-01-01T' + t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))
+          )
+        )
+      ) : ''
+    )
+  ));
+
+  // Weekly summary
+  parts.push(h('div', { style: { marginBottom: '20px' } },
+    h('div', { style: { background: 'var(--surface)', borderRadius: '12px', padding: '12px 16px', border: '1px solid var(--border)' } },
+      h('div', { class: 'reminder-row' },
+        h('div', {},
+          h('div', { class: 'reminder-label' }, 'Weekly progress summary'),
+          h('div', { class: 'reminder-sub' }, 'Receive a weekly summary of practice and progress')
+        ),
+        createToggle('weeklySummary', remindersData.weeklySummary || false, async (val) => {
+          remindersData.weeklySummary = val;
+          await dbRef('parentReminders/' + currentParentId + '/weeklySummary').set(val).catch(() => {});
+          render();
+        })
+      )
+    )
+  ));
+
+  // Payment reminders
+  parts.push(h('div', { style: { marginBottom: '20px' } },
+    h('div', { style: { background: 'var(--surface)', borderRadius: '12px', padding: '12px 16px', border: '1px solid var(--border)' } },
+      h('div', { class: 'reminder-row' },
+        h('div', {},
+          h('div', { class: 'reminder-label' }, 'Payment due alerts'),
+          h('div', { class: 'reminder-sub' }, 'Get notified when a tuition balance is due')
+        ),
+        createToggle('paymentReminder', remindersData.paymentReminder || false, async (val) => {
+          remindersData.paymentReminder = val;
+          await dbRef('parentReminders/' + currentParentId + '/paymentReminder').set(val).catch(() => {});
+          render();
+        })
+      )
+    )
+  ));
+
+  // App info
+  parts.push(h('div', { style: { textAlign: 'center', padding: '20px', color: 'var(--muted)', fontSize: '11px' } },
+    h('div', {}, 'Professor of Funk'),
+    h('div', { style: { marginTop: '4px' } }, 'Parent Dashboard v2.0'),
+    h('div', { style: { marginTop: '8px' } },
+      h('button', { class: 'header-logout', style: { fontSize: '12px', padding: '6px 20px' }, onClick: logout }, 'Sign Out'))
+  ));
+
+  return h('div', {},
+    h('h2', { class: 'section-title' }, 'Settings'),
+    h('p', { class: 'section-sub' }, 'Notifications and preferences'),
+    ...parts
+  );
+}
+
+function createToggle(id, checked, onChange) {
+  const label = h('label', { class: 'toggle-switch' },
+    h('input', { type: 'checkbox', ...(checked ? { checked: '' } : {}),
+      onChange: (e) => { e.stopPropagation(); onChange(e.target.checked); }
+    }),
+    h('div', { class: 'toggle-track' }),
+    h('div', { class: 'toggle-thumb' })
+  );
+  return label;
+}
+
+/* ===== CHILD SELECTOR ===== */
+function renderChildSelector() {
+  if (childrenKeys.length <= 1) return h('div');
+  return h('div', { class: 'child-selector' },
+    ...childrenKeys.map((key, idx) => {
+      const name = (childrenData[key] && childrenData[key].profile && childrenData[key].profile.name) || key;
+      return h('div', {
+        class: 'child-pill' + (idx === selectedChildIdx ? ' active' : ''),
+        onClick: (e) => { e.stopPropagation(); selectedChildIdx = idx; render(); }
+      }, name);
+    })
+  );
+}
+
 /* ===== PAY NOW ===== */
 function openPayModal(studentKey) {
   payModalStudent = studentKey;
@@ -954,7 +1590,6 @@ async function submitPendingPayment(studentKey, amount, method) {
   };
   try {
     await dbRef('students/' + studentKey + '/payments/' + paymentId).set(payment);
-    // Refresh local data
     if (childrenData[studentKey]) {
       if (!childrenData[studentKey].payments) childrenData[studentKey].payments = {};
       childrenData[studentKey].payments[paymentId] = payment;
@@ -981,6 +1616,37 @@ async function cancelPendingPayment(studentKey, paymentId) {
   }
 }
 
+/* ===== PRACTICE REMINDER CHECK ===== */
+function checkPracticeReminder() {
+  if (!remindersData.practiceReminder) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const now = new Date();
+  const targetTime = remindersData.reminderTime || '17:00';
+  const [targetH, targetM] = targetTime.split(':').map(Number);
+  const currentH = now.getHours();
+  const currentM = now.getMinutes();
+
+  // Check within 5 minute window of target time
+  if (currentH === targetH && currentM >= targetM && currentM < targetM + 5) {
+    childrenKeys.forEach(key => {
+      const student = childrenData[key];
+      if (!student) return;
+      const practice = student.practice || {};
+      if (!didPracticeOnDate(practice, now)) {
+        const name = (student.profile || {}).name || key;
+        new Notification('Practice Reminder', {
+          body: name + ' hasn\'t practiced today yet! Time to hit the woodshed.',
+          icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><text y="28" font-size="28">🎵</text></svg>'
+        });
+      }
+    });
+  }
+}
+
+// Check every 5 minutes
+setInterval(checkPracticeReminder, 300000);
+
 /* ===== RENDER ===== */
 function render() {
   if (!parentData && !childrenKeys.length) return;
@@ -1005,6 +1671,56 @@ function render() {
   ));
 
   // Content
+  let content;
+  if (activeTab === 'dashboard') {
+    content = renderDashboardTab();
+  } else if (activeTab === 'practice') {
+    content = renderPracticeTab();
+  } else if (activeTab === 'messages') {
+    content = renderMessagesTabWrapper();
+  } else if (activeTab === 'events') {
+    content = renderEventsTabWrapper();
+  } else if (activeTab === 'settings') {
+    content = renderSettingsTabWrapper();
+  }
+
+  app.appendChild(content);
+
+  // Restore scroll unless tab changed
+  const newContent = app.querySelector('.content');
+  if (newContent && savedScroll > 0) newContent.scrollTop = savedScroll;
+
+  // Bottom nav
+  const tabs = [
+    { id: 'dashboard', icon: '\u{1F3E0}', label: 'Home' },
+    { id: 'practice', icon: '\u{1F3B5}', label: 'Practice' },
+    { id: 'messages', icon: '\u{1F4AC}', label: 'Messages', hasUnread: unreadMessages },
+    { id: 'events', icon: '\u{1F4C5}', label: 'Events' },
+    { id: 'settings', icon: '\u2699\uFE0F', label: 'Settings' }
+  ];
+  app.appendChild(h('div', { class: 'bottom-nav' },
+    ...tabs.map(t => {
+      const btn = h('button', {
+        class: 'nav-btn' + (activeTab === t.id ? ' active' : '') + (t.hasUnread ? ' has-unread' : ''),
+        onClick: () => { activeTab = t.id; render(); }
+      },
+        h('span', { class: 'nav-icon' }, t.icon),
+        t.hasUnread ? h('span', { class: 'nav-dot' }) : '',
+        h('span', {}, t.label)
+      );
+      return btn;
+    })
+  ));
+
+  // Pay Now modal
+  if (payModalStudent && childrenData[payModalStudent]) {
+    renderPayModal(payModalStudent);
+  }
+}
+
+/* ===== TAB RENDERERS ===== */
+
+function renderDashboardTab() {
   const content = h('div', { class: 'content' },
     h('h2', { class: 'section-title' }, 'Your Children'),
     h('p', { class: 'section-sub' }, Object.keys(childrenData).length + ' student' + (Object.keys(childrenData).length !== 1 ? 's' : '') + ' enrolled')
@@ -1021,13 +1737,11 @@ function render() {
     const nextLesson = getNextLessonText(student);
     const ensembles = getEnsembleNames(student);
 
-    // Build meta line: instrument + programs
     const programNames = Object.values(student.programs || {}).map(pr => pr.name).filter(Boolean).join(', ');
     let metaText = (p.instrument || '');
     if (programNames) metaText += ' \u00B7 ' + programNames;
 
     const card = h('div', { class: 'child-card' },
-      // Header row
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2px' } },
         h('div', {},
           h('div', { class: 'child-name' }, p.name || key),
@@ -1040,7 +1754,6 @@ function render() {
           balance > 0 ? 'Balance Due' : 'Paid Up')
       ),
 
-      // Stats row
       h('div', { class: 'stats-row', style: { marginTop: '10px' } },
         h('div', { class: 'stat-box' },
           h('div', { class: 'stat-label' }, 'Attendance'),
@@ -1093,13 +1806,77 @@ function render() {
     ));
   }
 
-  app.appendChild(content);
-  content.scrollTop = savedScroll;
-
-  // Pay Now modal
-  if (payModalStudent && childrenData[payModalStudent]) {
-    renderPayModal(payModalStudent);
+  // Upcoming events teaser
+  if (eventsData.length > 0) {
+    const nextEvent = eventsData[0];
+    const dt = new Date(nextEvent.date + 'T12:00:00');
+    const daysUntil = Math.ceil((dt - new Date()) / 86400000);
+    content.appendChild(h('div', {
+      style: {
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
+        padding: '14px 16px', marginTop: '4px', cursor: 'pointer'
+      },
+      onClick: () => { activeTab = 'events'; render(); }
+    },
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+        h('div', {},
+          h('div', { style: { fontSize: '10px', fontWeight: '600', color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' } }, 'Next Event'),
+          h('div', { style: { fontWeight: '600', marginTop: '2px' } }, nextEvent.title),
+          h('div', { style: { fontSize: '11px', color: 'var(--muted)' } }, fmtDateShort(nextEvent.date) + (nextEvent.time ? ' \u00B7 ' + nextEvent.time : ''))
+        ),
+        h('span', { class: 'badge badge-accent' }, daysUntil <= 0 ? 'Today' : daysUntil + 'd')
+      )
+    ));
   }
+
+  return content;
+}
+
+function renderPracticeTab() {
+  const child = getSelectedChild();
+  if (!child) return h('div', { class: 'content' }, 'No student data.');
+  const { key, student } = child;
+  const name = (student.profile || {}).name || key;
+
+  return h('div', { class: 'content' },
+    h('h2', { class: 'section-title' }, 'Practice'),
+    h('p', { class: 'section-sub' }, name + '\'s practice history'),
+    renderChildSelector(),
+
+    // Current week
+    h('div', { style: { background: 'var(--surface)', borderRadius: '12px', padding: '14px', border: '1px solid var(--border)', marginBottom: '12px' } },
+      h('div', { style: { fontSize: '10px', fontWeight: '600', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' } }, 'This Week'),
+      renderChildPractice(key, student)
+    ),
+
+    // Calendar heatmap
+    h('div', { style: { background: 'var(--surface)', borderRadius: '12px', padding: '14px', border: '1px solid var(--border)', marginBottom: '12px' } },
+      h('div', { style: { fontSize: '10px', fontWeight: '600', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' } }, 'Monthly Calendar'),
+      renderPracticeHeatmap(key, student)
+    ),
+
+    // Progress charts
+    h('div', { style: { background: 'var(--surface)', borderRadius: '12px', padding: '14px', border: '1px solid var(--border)', marginBottom: '12px' } },
+      h('div', { style: { fontSize: '10px', fontWeight: '600', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' } }, 'Progress'),
+      renderProgressCharts(key, student)
+    )
+  );
+}
+
+function renderMessagesTabWrapper() {
+  return h('div', { class: 'content' },
+    h('h2', { class: 'section-title' }, 'Messages'),
+    h('p', { class: 'section-sub' }, 'Chat with your teacher'),
+    renderMessagesTab()
+  );
+}
+
+function renderEventsTabWrapper() {
+  return h('div', { class: 'content' }, renderEventsTab());
+}
+
+function renderSettingsTabWrapper() {
+  return h('div', { class: 'content' }, renderSettingsTab());
 }
 
 function renderPayModal(studentKey) {
@@ -1109,6 +1886,7 @@ function renderPayModal(studentKey) {
 
   const overlay = h('div', { class: 'modal-overlay', onClick: (e) => { if (e.target === overlay) closePayModal(); } },
     h('div', { class: 'modal' },
+      h('div', { style: { width: '40px', height: '4px', borderRadius: '2px', background: 'var(--border)', margin: '0 auto 16px' } }),
       h('div', { class: 'modal-title' }, 'Pay Now'),
       h('div', { class: 'modal-sub' }, 'Balance for ' + name + ': ' + fmtCurrency(balance)),
 
